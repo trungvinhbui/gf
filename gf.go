@@ -129,6 +129,9 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		session, err := mCookieStore.Get(r, SERVER_SESSION_ID)
 		if err != nil {
+			session, err = mCookieStore.New(r, SERVER_SESSION_ID)
+		}
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
