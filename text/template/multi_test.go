@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"github.com/goframework/gf/text/template/parse"
+	"gf/text/template/parse"
 )
 
 const (

@@ -189,13 +189,13 @@ func (e *Error) Error() string {
 	switch {
 	case e.Node != nil:
 		loc, _ := (*parse.Tree)(nil).ErrorContext(e.Node)
-		return fmt.Sprintf("github.com/goframework/gf/html/template:%s: %s", loc, e.Description)
+		return fmt.Sprintf("gf/html/template:%s: %s", loc, e.Description)
 	case e.Line != 0:
-		return fmt.Sprintf("github.com/goframework/gf/html/template:%s:%d: %s", e.Name, e.Line, e.Description)
+		return fmt.Sprintf("gf/html/template:%s:%d: %s", e.Name, e.Line, e.Description)
 	case e.Name != "":
-		return fmt.Sprintf("github.com/goframework/gf/html/template:%s: %s", e.Name, e.Description)
+		return fmt.Sprintf("gf/html/template:%s: %s", e.Name, e.Description)
 	}
-	return "github.com/goframework/gf/html/template: " + e.Description
+	return "gf/html/template: " + e.Description
 }
 
 // errorf creates an error given a format string f and args.

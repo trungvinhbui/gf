@@ -7,7 +7,7 @@ package template_test
 import (
 	"log"
 	"os"
-	"github.com/goframework/gf/text/template"
+	"gf/text/template"
 )
 
 func ExampleTemplate() {

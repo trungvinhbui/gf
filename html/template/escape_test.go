@@ -11,8 +11,8 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"github.com/goframework/gf/text/template"
-	"github.com/goframework/gf/text/template/parse"
+	"gf/text/template"
+	"gf/text/template/parse"
 )
 
 type badMarshaler struct{}
@@ -960,7 +960,7 @@ func TestErrors(t *testing.T) {
 		},
 		{
 			"<a class=`foo>",
-			"github.com/goframework/gf/html/template:z: \"`\" in unquoted attr: \"`foo\"",
+			"gf/html/template:z: \"`\" in unquoted attr: \"`foo\"",
 		},
 		{
 			`<a style=font:'Arial'>`,

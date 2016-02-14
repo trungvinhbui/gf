@@ -34,7 +34,7 @@ provided below.
 
 Example
 
-  import "github.com/goframework/gf/text/template"
+  import "gf/text/template"
   ...
   t, err := template.New("foo").Parse(`{{define "T"}}Hello, {{.}}!{{end}}`)
   err = t.ExecuteTemplate(out, "T", "<script>alert('you have been pwned')</script>")
@@ -45,7 +45,7 @@ produces
 
 but the contextual autoescaping in gf/html/template
 
-  import "github.com/goframework/gf/html/template"
+  import "gf/html/template"
   ...
   t, err := template.New("foo").Parse(`{{define "T"}}Hello, {{.}}!{{end}}`)
   err = t.ExecuteTemplate(out, "T", "<script>alert('you have been pwned')</script>")

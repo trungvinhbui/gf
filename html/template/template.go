@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-// Template is a specialized Template from "github.com/goframework/gf/text/template" that produces a safe
+// Template is a specialized Template from "gf/text/template" that produces a safe
 // HTML document fragment.
 type Template struct {
 	// Sticky error if escaping fails.
@@ -126,16 +126,16 @@ func (t *Template) lookupAndEscapeTemplate(name string) (tmpl *Template, err err
 	defer t.nameSpace.mu.Unlock()
 	tmpl = t.set[name]
 	if tmpl == nil {
-		return nil, fmt.Errorf("github.com/goframework/gf/html/template: %q is undefined", name)
+		return nil, fmt.Errorf("gf/html/template: %q is undefined", name)
 	}
 	if tmpl.escapeErr != nil && tmpl.escapeErr != escapeOK {
 		return nil, tmpl.escapeErr
 	}
 	if tmpl.text.Tree == nil || tmpl.text.Root == nil {
-		return nil, fmt.Errorf("github.com/goframework/gf/html/template: %q is an incomplete template", name)
+		return nil, fmt.Errorf("gf/html/template: %q is an incomplete template", name)
 	}
 	if t.text.Lookup(name) == nil {
-		panic("github.com/goframework/gf/html/template internal error: template escaping out of sync")
+		panic("gf/html/template internal error: template escaping out of sync")
 	}
 	if tmpl.escapeErr == nil {
 		err = escapeTemplate(tmpl, tmpl.text.Root, name)
@@ -186,7 +186,7 @@ func (t *Template) AddParseTree(name string, tree *parse.Tree) (*Template, error
 	t.nameSpace.mu.Lock()
 	defer t.nameSpace.mu.Unlock()
 	if t.escapeErr != nil {
-		return nil, fmt.Errorf("github.com/goframework/gf/html/template: cannot AddParseTree to %q after it has executed", t.Name())
+		return nil, fmt.Errorf("gf/html/template: cannot AddParseTree to %q after it has executed", t.Name())
 	}
 	text, err := t.text.AddParseTree(name, tree)
 	if err != nil {
@@ -214,7 +214,7 @@ func (t *Template) Clone() (*Template, error) {
 	t.nameSpace.mu.Lock()
 	defer t.nameSpace.mu.Unlock()
 	if t.escapeErr != nil {
-		return nil, fmt.Errorf("github.com/goframework/gf/html/template: cannot Clone %q after it has executed", t.Name())
+		return nil, fmt.Errorf("gf/html/template: cannot Clone %q after it has executed", t.Name())
 	}
 	textClone, err := t.text.Clone()
 	if err != nil {
@@ -232,7 +232,7 @@ func (t *Template) Clone() (*Template, error) {
 		name := x.Name()
 		src := t.set[name]
 		if src == nil || src.escapeErr != nil {
-			return nil, fmt.Errorf("github.com/goframework/gf/html/template: cannot Clone %q after it has executed", t.Name())
+			return nil, fmt.Errorf("gf/html/template: cannot Clone %q after it has executed", t.Name())
 		}
 		x.Tree = x.Tree.Copy()
 		ret.set[name] = &Template{
@@ -290,8 +290,8 @@ func (t *Template) Name() string {
 // return values of which the second has type error. In that case, if the
 // second (error) argument evaluates to non-nil during execution, execution
 // terminates and Execute returns that error. FuncMap has the same base type
-// as FuncMap in "github.com/goframework/gf/text/template", copied here so clients need not import
-// "github.com/goframework/gf/text/template".
+// as FuncMap in "gf/text/template", copied here so clients need not import
+// "gf/text/template".
 type FuncMap map[string]interface{}
 
 // Funcs adds the elements of the argument map to the template's function map.
@@ -352,7 +352,7 @@ func (t *Template) ParseFiles(filenames ...string) (*Template, error) {
 func parseFiles(t *Template, filenames ...string) (*Template, error) {
 	if len(filenames) == 0 {
 		// Not really a problem, but be consistent.
-		return nil, fmt.Errorf("github.com/goframework/gf/html/template: no files named in call to ParseFiles")
+		return nil, fmt.Errorf("gf/html/template: no files named in call to ParseFiles")
 	}
 	for _, filename := range filenames {
 		b, err := ioutil.ReadFile(filename)
@@ -409,7 +409,7 @@ func parseGlob(t *Template, pattern string) (*Template, error) {
 		return nil, err
 	}
 	if len(filenames) == 0 {
-		return nil, fmt.Errorf("github.com/goframework/gf/html/template: pattern matches no files: %#q", pattern)
+		return nil, fmt.Errorf("gf/html/template: pattern matches no files: %#q", pattern)
 	}
 	return parseFiles(t, filenames...)
 }

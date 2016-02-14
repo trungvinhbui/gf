@@ -4,13 +4,14 @@ import (
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/html/template"
-	"github.com/gorilla/sessions"
+	"github.com/goframework/gf/sessions"
 	"log"
 	"net/http"
 	"path/filepath"
 	"time"
 )
 
+const DEFAULT_SERVER_CONFIG_FILE string = "./server.cfg"
 const DEFAULT_SERVER_STATIC_DIR string = "./static"
 const DEFAULT_SERVER_VIEW_DIR string = "./view"
 const DEFAULT_SERVER_ADDR string = ":8026"
@@ -43,7 +44,7 @@ var mCookieStore *sessions.CookieStore
 func Run() {
 	var err error
 
-	mCfg.Load("./cfg/server.cfg")
+	mCfg.Load(DEFAULT_SERVER_CONFIG_FILE)
 
 	cfStaticDir := mCfg.Str("Server.StaticDir", DEFAULT_SERVER_STATIC_DIR)
 	cfViewDir := mCfg.Str("SServer.ViewDir", DEFAULT_SERVER_VIEW_DIR)

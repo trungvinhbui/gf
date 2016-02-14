@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/ext"
-	"github.com/gorilla/sessions"
+	"github.com/goframework/gf/sessions"
 	"net/http"
 )
 
