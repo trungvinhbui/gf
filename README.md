@@ -49,6 +49,8 @@ func main() {
 		ctx.ViewData["name"] = ctx.RouteVars["name"]
 		ctx.View = "helloworld.html"
 	})
+	
+	gf.Run()
 }
 ```
 
