@@ -11,6 +11,10 @@ type VarType struct {
 	Str string
 }
 
+func (v VarType) String() string {
+	return v.Str
+}
+
 // Replace ${VAR|default} by environment variable VAR or using "default" value if VAR is not set.
 func ReplaceEnv(s string) string {
 
