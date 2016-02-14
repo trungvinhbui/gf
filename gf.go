@@ -38,6 +38,7 @@ type patternFunc struct {
 
 var mListFilter []patternFunc
 var mListHandle []patternFunc
+var mHandle404 func(*Context)
 
 var mCookieStore *sessions.CookieStore
 
@@ -118,6 +119,10 @@ func HandleMethod(pattern string, f func(*Context), method string) {
 	})
 }
 
+func Handle404(f func(*Context)) {
+	mHandle404 = f
+}
+
 type gfHandler struct{}
 
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -182,33 +187,42 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				var viewFiles []string
-				if context.ViewBases != nil {
-					viewFiles = make([]string, len(context.ViewBases))
-					for i, tmpl := range context.ViewBases {
-						viewFiles[i] = mViewDir + "/" + tmpl
-					}
-				}
-				if context.View != "" {
-					viewFile := mViewDir + "/" + context.View
-					viewFiles = append(viewFiles, viewFile)
-				}
-				if len(viewFiles) > 0 {
-					tem, err := template.ParseFiles(viewFiles...)
-					if err != nil {
-						http.Error(w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
-						return
-					}
-					err = tem.Execute(w, context.ViewData)
-					if err != nil {
-						http.Error(w, "Execute: "+err.Error(), http.StatusInternalServerError)
-						return
-					}
-				}
+				renderView(&context)
+
 				return
 			}
 		}
 
-		http.Error(w, "404 - Not Found", http.StatusNotFound)
+		context.w.WriteHeader(http.StatusNotFound)
+		if mHandle404 != nil {
+			mHandle404(&context)
+			renderView(&context)
+		} else {
+			context.Write("404 - Not found")
+		}
+	}
+}
+
+func renderView(context *Context) {
+	var viewFiles []string
+	if context.ViewBases != nil {
+		viewFiles = make([]string, len(context.ViewBases))
+		for i, tmpl := range context.ViewBases {
+			viewFiles[i] = mViewDir + "/" + tmpl
+		}
+	}
+	if context.View != "" {
+		viewFile := mViewDir + "/" + context.View
+		viewFiles = append(viewFiles, viewFile)
+	}
+	if len(viewFiles) > 0 {
+		tem, err := template.ParseFiles(viewFiles...)
+		if err != nil {
+			http.Error(context.w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
+		}
+		err = tem.Execute(context.w, context.ViewData)
+		if err != nil {
+			http.Error(context.w, "Execute: "+err.Error(), http.StatusInternalServerError)
+		}
 	}
 }
