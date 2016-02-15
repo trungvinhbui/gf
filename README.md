@@ -9,13 +9,22 @@ $ go get github.com/goframework/gf
 2. Create server.cfg
   
   ```INI
+Server.EnableHttp		= 1
 Server.Addr 			= :8016
 Server.ReadTimeout		= 120
 Server.WriteTimeout		= 120
 Server.MaxHeaderBytes	= 65536
 Server.StaticDir		= ./static
 Server.ViewDir			= ./view
-Server.CookieSecrect	= Your cookie secrect (any string)
+Server.CookieSecret		= Your cookie secret (any string)
+Server.EnableHttps		= 0
+#IF Server.EnableHttps = 1, set bellow:
+#Server.AddrHttps 		= :44316
+#Server.CertFile		= cert.pem
+#Server.KeyFile			= key.pem
+#Create cert.pem and key.pem by:
+#  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout key.pem -out cert.pem
+
 ```
 3. Create view/helloworld.html
   

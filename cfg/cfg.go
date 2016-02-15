@@ -14,23 +14,19 @@ type Cfg struct {
 }
 
 func (this *Cfg) Str(key string, defaultValue string) string {
-	v, ok := this.Data[key]
-	if ok {
+	if v, ok := this.Data[key]; ok {
 		return v
 	}
 	return defaultValue
 }
 
 func (this *Cfg) Int(key string, defaultValue int) int {
-	v, ok := this.Data[key]
-	if ok {
-		num, err := strconv.Atoi(v)
-		if err != nil {
+	if v, ok := this.Data[key]; ok {
+		if num, err := strconv.Atoi(v); err == nil {
 			return num
 		}
 	}
 	return defaultValue
-
 }
 
 func (this *Cfg) Load(file string) {

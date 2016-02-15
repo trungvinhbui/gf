@@ -15,10 +15,16 @@ const DEFAULT_SERVER_CONFIG_FILE string = "./server.cfg"
 const DEFAULT_SERVER_STATIC_DIR string = "./static"
 const DEFAULT_SERVER_VIEW_DIR string = "./view"
 const DEFAULT_SERVER_ADDR string = ":8026"
+const DEFAULT_SERVER_ADDR_HTTPS string = ":44326"
+const DEFAULT_SERVER_CERT_FILE string = "./cert.pem"
+const DEFAULT_SERVER_KEY_FILE string = "./key.pem"
 const DEFAULT_SERVER_READ_TIMEOUT = 120
 const DEFAULT_SERVER_WRITE_TIMEOUT = 120
 const DEFAULT_SERVER_MAX_HEADER_BYTES = 65536
 const DEFAULT_COOKIE_SECRET string = "COOKIE_SECRET"
+
+const DEFAULT_SERVER_ENABLE_HTTP = 1
+const DEFAULT_SERVER_ENABLE_HTTPS = 0
 
 const SERVER_SESSION_ID string = "session_id"
 
@@ -48,13 +54,22 @@ func Run() {
 	mCfg.Load(DEFAULT_SERVER_CONFIG_FILE)
 
 	cfStaticDir := mCfg.Str("Server.StaticDir", DEFAULT_SERVER_STATIC_DIR)
-	cfViewDir := mCfg.Str("SServer.ViewDir", DEFAULT_SERVER_VIEW_DIR)
+	cfViewDir := mCfg.Str("Server.ViewDir", DEFAULT_SERVER_VIEW_DIR)
 
 	cfAddr := mCfg.Str("Server.Addr", DEFAULT_SERVER_ADDR)
 	cfReadTimeout := mCfg.Int("Server.ReadTimeout", DEFAULT_SERVER_READ_TIMEOUT)
 	cfWriteTimeout := mCfg.Int("Server.WriteTimeout", DEFAULT_SERVER_WRITE_TIMEOUT)
 	cfMaxHeaderBytes := mCfg.Int("Server.MaxHeaderBytes", DEFAULT_SERVER_MAX_HEADER_BYTES)
-	cfCookieSecret := mCfg.Str("Server.CookieSecrect", DEFAULT_COOKIE_SECRET)
+	cfCookieSecret := mCfg.Str("Server.CookieSecret", DEFAULT_COOKIE_SECRET)
+	cfEnableHttp := mCfg.Int("Server.EnableHttp", DEFAULT_SERVER_ENABLE_HTTP)
+	cfEnableHttps := mCfg.Int("Server.EnableHttps", DEFAULT_SERVER_ENABLE_HTTPS)
+	cfAddrHttps := mCfg.Str("Server.AddrHttps", DEFAULT_SERVER_ADDR_HTTPS)
+	cfCertFile := mCfg.Str("Server.CertFile", DEFAULT_SERVER_CERT_FILE)
+	cfKeyFile := mCfg.Str("Server.KeyFile", DEFAULT_SERVER_KEY_FILE)
+
+	if cfEnableHttp == 0 && cfEnableHttps == 0 {
+		log.Fatal("No server enabled. At least Server.EnableHttp or Server.EnableHttps have to not zero.")
+	}
 
 	mStaticDir, err = filepath.Abs(cfStaticDir)
 	if err != nil {
@@ -67,7 +82,7 @@ func Run() {
 
 	mCookieStore = sessions.NewCookieStore([]byte(cfCookieSecret))
 
-	server := &http.Server{
+	serverHttp := &http.Server{
 		Addr:           cfAddr,
 		ReadTimeout:    time.Duration(cfReadTimeout) * time.Second,
 		WriteTimeout:   time.Duration(cfWriteTimeout) * time.Second,
@@ -75,9 +90,41 @@ func Run() {
 		Handler:        &gfHandler{},
 	}
 
-	log.Println("Server start at " + cfAddr)
-	log.Fatal(server.ListenAndServe())
-	log.Println("Server stopted")
+	serverHttps := &http.Server{
+		Addr:           cfAddrHttps,
+		ReadTimeout:    time.Duration(cfReadTimeout) * time.Second,
+		WriteTimeout:   time.Duration(cfWriteTimeout) * time.Second,
+		MaxHeaderBytes: cfMaxHeaderBytes,
+		Handler:        &gfHandler{},
+	}
+
+	errChanHttp := make(chan error)
+	errChanHttps := make(chan error)
+
+	if cfEnableHttp != 0 {
+		go func() {
+			log.Println("Http server start at " + cfAddr)
+			err := serverHttp.ListenAndServe()
+			errChanHttp <- err
+			log.Println("Http server stopted")
+		}()
+	}
+
+	if cfEnableHttps != 0 {
+		go func() {
+			log.Println("Https server start at " + cfAddrHttps)
+			err := serverHttps.ListenAndServeTLS(cfCertFile, cfKeyFile)
+			errChanHttps <- err
+			log.Println("Https server stopted")
+		}()
+	}
+
+	select {
+	case err := <-errChanHttp:
+		log.Printf("ListenAndServe error: %s", err)
+	case err := <-errChanHttps:
+		log.Printf("ListenAndServeTLS error: %s", err)
+	}
 }
 
 func Filter(pattern string, f func(*Context)) {
@@ -218,11 +265,11 @@ func renderView(context *Context) {
 	if len(viewFiles) > 0 {
 		tem, err := template.ParseFiles(viewFiles...)
 		if err != nil {
-			http.Error(context.w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
+			http.Error(context.w, "ParseFiles: " + err.Error(), http.StatusInternalServerError)
 		}
 		err = tem.Execute(context.w, context.ViewData)
 		if err != nil {
-			http.Error(context.w, "Execute: "+err.Error(), http.StatusInternalServerError)
+			http.Error(context.w, "Execute: " + err.Error(), http.StatusInternalServerError)
 		}
 	}
 }
