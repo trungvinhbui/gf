@@ -6,6 +6,7 @@ import (
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/sessions"
 	"net/http"
+	"database/sql"
 )
 
 type Context struct {
@@ -27,6 +28,8 @@ type Context struct {
 	IsGetMethod    bool
 	IsPostMethod   bool
 	Form           map[string][]string
+
+	DB             *sql.DB
 }
 
 func (ctx *Context) Redirect(path string) {

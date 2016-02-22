@@ -45,9 +45,11 @@ type patternFunc struct {
 var mListFilter []patternFunc
 var mListHandle []patternFunc
 var mHandle404 func(*Context)
+var mDBGen *sqlDBFactory
 
 var mCookieStore *sessions.CookieStore
 
+// Start web server
 func Run() {
 	var err error
 
@@ -67,6 +69,23 @@ func Run() {
 	cfCertFile := mCfg.Str("Server.CertFile", DEFAULT_SERVER_CERT_FILE)
 	cfKeyFile := mCfg.Str("Server.KeyFile", DEFAULT_SERVER_KEY_FILE)
 
+	cfDatabaseDriver := mCfg.Str("Database.Driver","")
+	cfDatabaseHost := mCfg.Str("Database.Host","")
+	cfDatabasePort := mCfg.Int("Database.Port",0)
+	cfDatabaseUser := mCfg.Str("Database.User","")
+	cfDatabasePwd := mCfg.Str("Database.Pwd","")
+	cfDatabaseName := mCfg.Str("Database.DatabaseName","")
+
+	mDBGen = &sqlDBFactory{
+		cfDatabaseDriver,
+		cfDatabaseHost,
+		cfDatabasePort,
+		cfDatabaseUser,
+		cfDatabasePwd,
+		cfDatabaseName,
+		false,
+	}
+
 	if cfEnableHttp == 0 && cfEnableHttps == 0 {
 		log.Fatal("No server enabled. At least Server.EnableHttp or Server.EnableHttps have to not zero.")
 	}
@@ -77,6 +96,10 @@ func Run() {
 	}
 	mViewDir, err = filepath.Abs(cfViewDir)
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = mDBGen.Check(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -200,6 +223,13 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			IsGetMethod:  r.Method == METHOD_GET,
 			IsPostMethod: r.Method == METHOD_POST,
 			Form:         r.Form,
+		}
+
+		if mDBGen.IsEnable {
+			context.DB = mDBGen.NewConnect()
+			if context.DB != nil {
+				defer context.DB.Close()
+			}
 		}
 
 		for _, pf := range mListFilter {
