@@ -102,3 +102,11 @@ func (ctx *Context) NewSession() {
 		return
 	}
 }
+
+func (ctx *Context) GetResponseWriter() http.ResponseWriter {
+	return ctx.w
+}
+
+func (ctx *Context) AddResponseHeader(key string, value string) {
+	ctx.w.Header().Add(key, value)
+}
