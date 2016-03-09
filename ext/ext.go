@@ -146,6 +146,24 @@ func FileExists(name string) bool {
 	return true
 }
 
+func FolderExists(name string) bool {
+	info, err := os.Stat(name)
+	if os.IsNotExist(err) || !info.IsDir() {
+		return false
+	}
+	return true
+}
+
+func FileNameFromPath(filePath string) string {
+	lastSlash := strings.LastIndex(filePath, "/")
+
+	if lastSlash > 0 {
+		return filePath[lastSlash+1:]
+	}
+
+	return filePath
+}
+
 func ArrayContains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
