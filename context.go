@@ -10,9 +10,10 @@ import (
 )
 
 type Context struct {
-	w    http.ResponseWriter
-	r    *http.Request
-	vars map[string]interface{}
+	w              http.ResponseWriter
+	r              *http.Request
+	vars           map[string]interface{}
+	isSelfResponse bool
 
 	Config         *cfg.Cfg
 	RouteVars      map[string]ext.VarType
@@ -78,11 +79,18 @@ func (ctx *Context) GetBool(key string) (bool, bool) {
 	return false, false
 }
 
-func (ctx *Context) Write(content string) {
-	fmt.Fprint(ctx.w, content)
+func (ctx *Context) Write(data []byte) (int, error) {
+	ctx.isSelfResponse = true
+	return ctx.w.Write(data)
+}
+
+func (ctx *Context) WriteS(output string) {
+	ctx.isSelfResponse = true
+	fmt.Fprint(ctx.w, output)
 }
 
 func (ctx *Context) Writef(format string, content ...interface{}) {
+	ctx.isSelfResponse = true
 	fmt.Fprintf(ctx.w, format, content...)
 }
 

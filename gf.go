@@ -69,12 +69,12 @@ func Run() {
 	cfCertFile := mCfg.Str("Server.CertFile", DEFAULT_SERVER_CERT_FILE)
 	cfKeyFile := mCfg.Str("Server.KeyFile", DEFAULT_SERVER_KEY_FILE)
 
-	cfDatabaseDriver := mCfg.Str("Database.Driver","")
-	cfDatabaseHost := mCfg.Str("Database.Host","")
-	cfDatabasePort := mCfg.Int("Database.Port",0)
-	cfDatabaseUser := mCfg.Str("Database.User","")
-	cfDatabasePwd := mCfg.Str("Database.Pwd","")
-	cfDatabaseName := mCfg.Str("Database.DatabaseName","")
+	cfDatabaseDriver := mCfg.Str("Database.Driver", "")
+	cfDatabaseHost := mCfg.Str("Database.Host", "")
+	cfDatabasePort := mCfg.Int("Database.Port", 0)
+	cfDatabaseUser := mCfg.Str("Database.User", "")
+	cfDatabasePwd := mCfg.Str("Database.Pwd", "")
+	cfDatabaseName := mCfg.Str("Database.DatabaseName", "")
 
 	mDBGen = &sqlDBFactory{
 		cfDatabaseDriver,
@@ -213,16 +213,17 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		r.ParseForm()
 		context := Context{
-			w:            w,
-			r:            r,
-			Config:       &mCfg,
-			Session:      session,
-			UrlPath:      r.URL.Path,
-			ViewData:     make(map[string]interface{}),
-			Method:       r.Method,
-			IsGetMethod:  r.Method == METHOD_GET,
-			IsPostMethod: r.Method == METHOD_POST,
-			Form:         r.Form,
+			w:              w,
+			r:              r,
+			isSelfResponse: false,
+			Config:         &mCfg,
+			Session:        session,
+			UrlPath:        r.URL.Path,
+			ViewData:       make(map[string]interface{}),
+			Method:         r.Method,
+			IsGetMethod:    r.Method == METHOD_GET,
+			IsPostMethod:   r.Method == METHOD_POST,
+			Form:           r.Form,
 		}
 
 		if mDBGen.IsEnable {
@@ -247,6 +248,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			}
 		}
+
 		for _, pf := range mListHandle {
 			methodMatched := ext.ArrayContains(pf.Methods, r.Method)
 			if !methodMatched {
@@ -264,6 +266,10 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+				if context.isSelfResponse {
+					return
+				}
+
 				renderView(&context)
 
 				return
@@ -275,7 +281,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			mHandle404(&context)
 			renderView(&context)
 		} else {
-			context.Write("404 - Not found")
+			context.WriteS("404 - Not found")
 		}
 	}
 }
