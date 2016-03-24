@@ -7,7 +7,10 @@ import (
 	"github.com/goframework/gf/sessions"
 	"net/http"
 	"database/sql"
+	"io"
 )
+
+const MAX_MULTIPART_MEMORY = 1024 * 1024
 
 type Context struct {
 	w              http.ResponseWriter
@@ -118,3 +121,23 @@ func (ctx *Context) GetResponseWriter() http.ResponseWriter {
 func (ctx *Context) AddResponseHeader(key string, value string) {
 	ctx.w.Header().Add(key, value)
 }
+
+func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, error) {
+	ctx.r.ParseMultipartForm(MAX_MULTIPART_MEMORY)
+	var file io.ReadCloser
+	file, handler, err := ctx.r.FormFile(inputName)
+	if err != nil {
+		return "", nil, err
+	}
+	fileName := handler.Filename
+
+	if file == nil {
+		file, err = handler.Open()
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
+	return fileName, file, nil
+}
+
