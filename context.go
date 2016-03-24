@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"database/sql"
 	"io"
+	"time"
 )
 
 const MAX_MULTIPART_MEMORY = 1024 * 1024
@@ -120,6 +121,24 @@ func (ctx *Context) GetResponseWriter() http.ResponseWriter {
 
 func (ctx *Context) AddResponseHeader(key string, value string) {
 	ctx.w.Header().Add(key, value)
+}
+
+// Set temporary cookie
+func (ctx *Context) SetCookie(key string, value string) {
+	cookie := http.Cookie{Name: key, Value: value}
+	http.SetCookie(ctx.w, &cookie)
+}
+
+// Set persistent cookie
+func (ctx *Context) SetPersistentCookie(key string, value string, duration time.Duration) {
+	expiration := time.Now().Add(duration)
+	cookie := http.Cookie{Name: key, Value: value, Expires: expiration}
+	http.SetCookie(ctx.w, &cookie)
+}
+
+// Unset cookie
+func (ctx *Context) DeleteCookie(key string) {
+	ctx.AddResponseHeader("Set-Cookie", key + "=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")
 }
 
 func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, error) {
