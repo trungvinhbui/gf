@@ -19,14 +19,18 @@ type sqlDBFactory struct {
 
 func (this *sqlDBFactory) Check() error {
 	this.IsEnable = (this.Driver != "")
-
-	db, err := sql.Open(this.Driver,
-		this.User + ":" + this.Pwd + "@tcp(" + this.Host + ":" + strconv.Itoa(this.Port) + ")/" + this.Database)
-	if db != nil {
-		db.Close()
+	
+	if this.IsEnable {
+		db, err := sql.Open(this.Driver,
+			this.User + ":" + this.Pwd + "@tcp(" + this.Host + ":" + strconv.Itoa(this.Port) + ")/" + this.Database)
+		if db != nil {
+			db.Close()
+		}
+	
+		return err
 	}
-
-	return err
+	
+	return nil
 }
 
 func (this *sqlDBFactory) NewConnect() (*sql.DB) {
