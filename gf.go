@@ -206,10 +206,6 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			session, err = mCookieStore.New(r, SERVER_SESSION_ID)
 		}
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 
 		r.ParseForm()
 		context := Context{
