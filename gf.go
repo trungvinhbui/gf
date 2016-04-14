@@ -104,6 +104,7 @@ func Run() {
 	}
 
 	mCookieStore = sessions.NewCookieStore([]byte(cfCookieSecret))
+	mCookieStore.MaxAge(60*15)
 
 	serverHttp := &http.Server{
 		Addr:           cfAddr,
