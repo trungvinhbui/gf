@@ -129,6 +129,18 @@ func (ctx *Context) SetCookie(key string, value string) {
 	http.SetCookie(ctx.w, &cookie)
 }
 
+// Get cookie
+func (ctx *Context) GetCookie(key string) string {
+
+	cookie, err := ctx.r.Cookie(key)
+
+	if err != nil {
+		return cookie.Value
+	}
+
+	return ""
+}
+
 // Set persistent cookie
 func (ctx *Context) SetPersistentCookie(key string, value string, duration time.Duration) {
 	expiration := time.Now().Add(duration)
