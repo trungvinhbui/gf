@@ -13,11 +13,11 @@ Server.EnableHttp		= 1
 Server.Addr 			= :8016
 Server.ReadTimeout		= 120
 Server.WriteTimeout		= 120
-Server.MaxHeaderBytes	= 65536
+Server.MaxHeaderBytes		= 65536
 Server.StaticDir		= ./static
 Server.ViewDir			= ./view
 Server.CookieSecret		= Your cookie secret (any string)
-Server.SessionStoreDir          = ./session_store
+Server.SessionStoreDir		= ./session_store
 
 Server.EnableHttps		= 0
 #IF Server.EnableHttps = 1, set bellow:
