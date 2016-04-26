@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"time"
+	"os"
 )
 
 const DEFAULT_SERVER_CONFIG_FILE string = "./server.cfg"
@@ -22,6 +23,7 @@ const DEFAULT_SERVER_READ_TIMEOUT = 120
 const DEFAULT_SERVER_WRITE_TIMEOUT = 120
 const DEFAULT_SERVER_MAX_HEADER_BYTES = 65536
 const DEFAULT_COOKIE_SECRET string = "COOKIE_SECRET"
+const DEFAULT_SESSION_STORE_DIR = "./session_store"
 
 const DEFAULT_SERVER_ENABLE_HTTP = 1
 const DEFAULT_SERVER_ENABLE_HTTPS = 0
@@ -33,6 +35,7 @@ const METHOD_POST string = "POST"
 
 var mStaticDir string
 var mViewDir string
+var mSessionStoreDir string
 
 var mCfg cfg.Cfg = cfg.Cfg{}
 
@@ -47,7 +50,7 @@ var mListHandle []patternFunc
 var mHandle404 func(*Context)
 var mDBGen *sqlDBFactory
 
-var mCookieStore *sessions.CookieStore
+var mSessionStore *sessions.FilesystemStore
 
 // Start web server
 func Run() {
@@ -63,6 +66,7 @@ func Run() {
 	cfWriteTimeout := mCfg.Int("Server.WriteTimeout", DEFAULT_SERVER_WRITE_TIMEOUT)
 	cfMaxHeaderBytes := mCfg.Int("Server.MaxHeaderBytes", DEFAULT_SERVER_MAX_HEADER_BYTES)
 	cfCookieSecret := mCfg.Str("Server.CookieSecret", DEFAULT_COOKIE_SECRET)
+	cfSessionStoreDir := mCfg.Str("Server.SessionStoreDir", DEFAULT_SESSION_STORE_DIR)
 	cfEnableHttp := mCfg.Int("Server.EnableHttp", DEFAULT_SERVER_ENABLE_HTTP)
 	cfEnableHttps := mCfg.Int("Server.EnableHttps", DEFAULT_SERVER_ENABLE_HTTPS)
 	cfAddrHttps := mCfg.Str("Server.AddrHttps", DEFAULT_SERVER_ADDR_HTTPS)
@@ -99,12 +103,18 @@ func Run() {
 		log.Fatal(err)
 	}
 
+	mSessionStoreDir, err = filepath.Abs(cfSessionStoreDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	os.MkdirAll(mSessionStoreDir, os.ModePerm)
+
 	if err = mDBGen.Check(); err != nil {
 		log.Fatal(err)
 	}
 
-	mCookieStore = sessions.NewCookieStore([]byte(cfCookieSecret))
-	mCookieStore.MaxAge(60*15)
+	mSessionStore = sessions.NewFilesystemStore(mSessionStoreDir, []byte(cfCookieSecret))
+	mSessionStore.MaxAge(60*15)
 
 	serverHttp := &http.Server{
 		Addr:           cfAddr,
@@ -203,9 +213,9 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, staticFile)
 	} else {
 
-		session, err := mCookieStore.Get(r, SERVER_SESSION_ID)
+		session, err := mSessionStore.Get(r, SERVER_SESSION_ID)
 		if err != nil {
-			session, err = mCookieStore.New(r, SERVER_SESSION_ID)
+			session, err = mSessionStore.New(r, SERVER_SESSION_ID)
 		}
 
 		r.ParseForm()
