@@ -108,7 +108,7 @@ func (ctx *Context) NewSession() {
 	ctx.ClearSession()
 
 	var err error
-	ctx.Session, err = mCookieStore.New(ctx.r, SERVER_SESSION_ID)
+	ctx.Session, err = mSessionStore.New(ctx.r, SERVER_SESSION_ID)
 	if err != nil {
 		http.Error(ctx.w, err.Error(), http.StatusInternalServerError)
 		return
