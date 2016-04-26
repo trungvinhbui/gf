@@ -17,6 +17,8 @@ Server.MaxHeaderBytes	= 65536
 Server.StaticDir		= ./static
 Server.ViewDir			= ./view
 Server.CookieSecret		= Your cookie secret (any string)
+Server.SessionStoreDir          = ./session_store
+
 Server.EnableHttps		= 0
 #IF Server.EnableHttps = 1, set bellow:
 #Server.AddrHttps 		= :44316
