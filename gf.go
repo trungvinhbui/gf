@@ -308,10 +308,13 @@ func renderView(context *Context) {
 	if len(viewFiles) > 0 {
 		tem, err := template.ParseFiles(viewFiles...)
 		if err != nil {
+			log.Println("Error while parsing template:\n" + err.Error())
 			http.Error(context.w, "ParseFiles: " + err.Error(), http.StatusInternalServerError)
+			return
 		}
 		err = tem.Execute(context.w, context.ViewData)
 		if err != nil {
+			log.Println("Error while executing template:\n" + err.Error())
 			http.Error(context.w, "Execute: " + err.Error(), http.StatusInternalServerError)
 		}
 	}
