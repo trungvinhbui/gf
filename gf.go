@@ -5,11 +5,13 @@ import (
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/html/template"
 	"github.com/goframework/gf/sessions"
+	"github.com/goframework/gf/fsgzip"
 	"log"
 	"net/http"
 	"path/filepath"
 	"time"
 	"os"
+	"compress/gzip"
 )
 
 const DEFAULT_SERVER_CONFIG_FILE string = "./server.cfg"
@@ -25,6 +27,8 @@ const DEFAULT_SERVER_MAX_HEADER_BYTES = 65536
 const DEFAULT_COOKIE_SECRET string = "COOKIE_SECRET"
 const DEFAULT_SESSION_STORE_DIR = "./session_store"
 
+const DEFAULT_SERVER_ENABLE_GZIP = 1
+
 const DEFAULT_SERVER_ENABLE_HTTP = 1
 const DEFAULT_SERVER_ENABLE_HTTPS = 0
 
@@ -36,6 +40,7 @@ const METHOD_POST string = "POST"
 var mStaticDir string
 var mViewDir string
 var mSessionStoreDir string
+var mEnableGzip = 1
 
 var mCfg cfg.Cfg = cfg.Cfg{}
 
@@ -72,6 +77,8 @@ func Run() {
 	cfAddrHttps := mCfg.Str("Server.AddrHttps", DEFAULT_SERVER_ADDR_HTTPS)
 	cfCertFile := mCfg.Str("Server.CertFile", DEFAULT_SERVER_CERT_FILE)
 	cfKeyFile := mCfg.Str("Server.KeyFile", DEFAULT_SERVER_KEY_FILE)
+
+	mEnableGzip = mCfg.Int("Server.EnableGzip", DEFAULT_SERVER_ENABLE_GZIP)
 
 	cfDatabaseDriver := mCfg.Str("Database.Driver", "")
 	cfDatabaseHost := mCfg.Str("Database.Host", "")
@@ -210,7 +217,11 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.EscapedPath()
 	staticFile := mStaticDir + path
 	if ext.FileExists(staticFile) && r.Method == METHOD_GET {
-		http.ServeFile(w, r, staticFile)
+		if mEnableGzip == 1 {
+			fsgzip.ServeFile(w, r, staticFile)
+		} else {
+			http.ServeFile(w, r, staticFile)
+		}
 	} else {
 
 		session, err := mSessionStore.Get(r, SERVER_SESSION_ID)
@@ -312,10 +323,24 @@ func renderView(context *Context) {
 			http.Error(context.w, "ParseFiles: " + err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = tem.Execute(context.w, context.ViewData)
+
+		if mEnableGzip == 1 {
+			context.w.Header().Set("Content-Encoding", "gzip")
+
+			if context.w.Header().Get("Content-Type") == "" {
+				context.w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			}
+
+			gzWriter := gzip.NewWriter(context.w)
+			err = tem.Execute(gzWriter, context.ViewData)
+			gzWriter.Flush()
+
+		} else {
+			err = tem.Execute(context.w, context.ViewData)
+		}
+
 		if err != nil {
 			log.Println("Error while executing template:\n" + err.Error())
-			http.Error(context.w, "Execute: " + err.Error(), http.StatusInternalServerError)
 		}
 	}
 }
