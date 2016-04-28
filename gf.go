@@ -6,6 +6,7 @@ import (
 	"github.com/goframework/gf/html/template"
 	"github.com/goframework/gf/sessions"
 	"github.com/goframework/gf/fsgzip"
+	"golang.org/x/net/http2"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -31,6 +32,7 @@ const DEFAULT_SERVER_ENABLE_GZIP = 1
 
 const DEFAULT_SERVER_ENABLE_HTTP = 1
 const DEFAULT_SERVER_ENABLE_HTTPS = 0
+const DEFAULT_SERVER_ENABLE_HTTP2 = 1
 
 const SERVER_SESSION_ID string = "session_id"
 
@@ -74,6 +76,7 @@ func Run() {
 	cfSessionStoreDir := mCfg.Str("Server.SessionStoreDir", DEFAULT_SESSION_STORE_DIR)
 	cfEnableHttp := mCfg.Int("Server.EnableHttp", DEFAULT_SERVER_ENABLE_HTTP)
 	cfEnableHttps := mCfg.Int("Server.EnableHttps", DEFAULT_SERVER_ENABLE_HTTPS)
+	cfEnableHttp2 := mCfg.Int("Server.EnableHttp2", DEFAULT_SERVER_ENABLE_HTTP2)
 	cfAddrHttps := mCfg.Str("Server.AddrHttps", DEFAULT_SERVER_ADDR_HTTPS)
 	cfCertFile := mCfg.Str("Server.CertFile", DEFAULT_SERVER_CERT_FILE)
 	cfKeyFile := mCfg.Str("Server.KeyFile", DEFAULT_SERVER_KEY_FILE)
@@ -154,6 +157,11 @@ func Run() {
 	if cfEnableHttps != 0 {
 		go func() {
 			log.Println("Https server start at " + cfAddrHttps)
+
+			if cfEnableHttp2 != 0 {
+				http2.ConfigureServer(serverHttps, nil)
+			}
+
 			err := serverHttps.ListenAndServeTLS(cfCertFile, cfKeyFile)
 			errChanHttps <- err
 			log.Println("Https server stopted")

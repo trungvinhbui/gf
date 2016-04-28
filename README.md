@@ -19,6 +19,9 @@ Server.ViewDir			= ./view
 Server.CookieSecret		= Your cookie secret (any string)
 Server.SessionStoreDir	= ./session_store
 
+Server.EnableGzip		= 1
+Server.EnableHttp2		= 1
+
 Server.EnableHttps		= 0
 #IF Server.EnableHttps = 1, set bellow:
 #Server.AddrHttps 		= :44316
