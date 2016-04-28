@@ -121,7 +121,7 @@ func Run() {
 	}
 
 	mSessionStore = sessions.NewFilesystemStore(mSessionStoreDir, []byte(cfCookieSecret))
-	mSessionStore.MaxAge(60*15)
+	mSessionStore.MaxAge(0) // session only
 
 	serverHttp := &http.Server{
 		Addr:           cfAddr,
