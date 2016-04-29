@@ -13,7 +13,11 @@ import (
 	"time"
 	"os"
 	"compress/gzip"
+	"io/ioutil"
+	"strings"
 )
+
+const DEFAULT_HTTPS_PORT = ":443"
 
 const DEFAULT_SERVER_CONFIG_FILE string = "./server.cfg"
 const DEFAULT_SERVER_STATIC_DIR string = "./static"
@@ -29,6 +33,7 @@ const DEFAULT_COOKIE_SECRET string = "COOKIE_SECRET"
 const DEFAULT_SESSION_STORE_DIR = "./session_store"
 
 const DEFAULT_SERVER_ENABLE_GZIP = 1
+const DEFAULT_SERVER_FORCE_HTTPS = 0
 
 const DEFAULT_SERVER_ENABLE_HTTP = 1
 const DEFAULT_SERVER_ENABLE_HTTPS = 0
@@ -43,6 +48,11 @@ var mStaticDir string
 var mViewDir string
 var mSessionStoreDir string
 var mEnableGzip = 1
+var mEnableHttps = 0
+var mForeHttps = 0
+
+var mServerHttpAddr string
+var mServerHttpsAddr string
 
 var mCfg cfg.Cfg = cfg.Cfg{}
 
@@ -81,7 +91,12 @@ func Run() {
 	cfCertFile := mCfg.Str("Server.CertFile", DEFAULT_SERVER_CERT_FILE)
 	cfKeyFile := mCfg.Str("Server.KeyFile", DEFAULT_SERVER_KEY_FILE)
 
+	mServerHttpAddr = cfAddr
+	mServerHttpsAddr = cfAddrHttps
+	mEnableHttps = cfEnableHttps
+
 	mEnableGzip = mCfg.Int("Server.EnableGzip", DEFAULT_SERVER_ENABLE_GZIP)
+	mForeHttps = mCfg.Int("Server.ForceHttps", DEFAULT_SERVER_FORCE_HTTPS)
 
 	cfDatabaseDriver := mCfg.Str("Database.Driver", "")
 	cfDatabaseHost := mCfg.Str("Database.Host", "")
@@ -168,6 +183,8 @@ func Run() {
 		}()
 	}
 
+	startDeleteSessionStoreJob()
+	
 	select {
 	case err := <-errChanHttp:
 		log.Printf("ListenAndServe error: %s", err)
@@ -223,7 +240,29 @@ type gfHandler struct{}
 
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.EscapedPath()
+	host := r.Host
+	if r.TLS == nil {
+		if strings.HasSuffix(r.Host, mServerHttpAddr) {
+			host = host[:len(host) - len(mServerHttpAddr)]
+		}
+	} else {
+		if strings.HasSuffix(r.Host, mServerHttpsAddr) {
+			host = host[:len(host) - len(mServerHttpsAddr)]
+		}
+	}
+
+	if mForeHttps == 1 && r.TLS == nil {
+		httpsUrl := "https://" + host
+		if mServerHttpsAddr != DEFAULT_HTTPS_PORT {
+			httpsUrl = httpsUrl + mServerHttpsAddr
+		}
+
+		http.Redirect(w, r, httpsUrl, http.StatusFound)
+		return
+	}
+
 	staticFile := mStaticDir + path
+
 	if ext.FileExists(staticFile) && r.Method == METHOD_GET {
 		if mEnableGzip == 1 {
 			fsgzip.ServeFile(w, r, staticFile)
@@ -249,6 +288,8 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Method:         r.Method,
 			IsGetMethod:    r.Method == METHOD_GET,
 			IsPostMethod:   r.Method == METHOD_POST,
+			IsUsingTSL:     r.TLS != nil,
+			Host:           host,
 			Form:           r.Form,
 		}
 
@@ -351,4 +392,32 @@ func renderView(context *Context) {
 			log.Println("Error while executing template:\n" + err.Error())
 		}
 	}
+}
+
+func startDeleteSessionStoreJob(){
+	go func() {
+		for true {
+			log.Println("Start delete session store !")
+
+			files, err := ioutil.ReadDir(mSessionStoreDir)
+			monthAgo := time.Now().AddDate(0, -1, 0)
+			count := 0
+			if err == nil {
+				for _, f := range files {
+					if f.ModTime().Before(monthAgo) {
+						if os.Remove(mSessionStoreDir + "/" + f.Name()) == nil {
+							count++
+						}
+					}
+				}
+			}
+
+			if count > 0 {
+				log.Printf("Deleted %v session files\r\n", count)
+			}
+
+			log.Println("End delete session store !")
+			time.Sleep(24*time.Hour)
+		}
+	}()
 }

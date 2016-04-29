@@ -32,7 +32,9 @@ type Context struct {
 	Method         string
 	IsGetMethod    bool
 	IsPostMethod   bool
+	IsUsingTSL     bool
 	Form           map[string][]string
+	Host           string
 
 	DB             *sql.DB
 }
