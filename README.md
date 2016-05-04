@@ -15,6 +15,7 @@ Server.ReadTimeout		= 120
 Server.WriteTimeout		= 120
 Server.MaxHeaderBytes	= 65536
 Server.StaticDir		= ./static
+Server.StaticWebPath	= /static
 Server.ViewDir			= ./view
 Server.CookieSecret		= Your cookie secret (any string)
 Server.SessionStoreDir	= ./session_store
