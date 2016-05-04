@@ -255,18 +255,10 @@ type gfHandler struct{}
 
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.EscapedPath()
-	host := r.Host
-	if r.TLS == nil {
-		if strings.HasSuffix(r.Host, mServerHttpAddr) {
-			host = host[:len(host) - len(mServerHttpAddr)]
-		}
-	} else {
-		if strings.HasSuffix(r.Host, mServerHttpsAddr) {
-			host = host[:len(host) - len(mServerHttpsAddr)]
-		}
-	}
+
 
 	if mForeHttps == 1 && r.TLS == nil {
+		host := getHost(r)
 		httpsUrl := "https://" + host
 		if mServerHttpsAddr != DEFAULT_HTTPS_PORT {
 			httpsUrl = httpsUrl + mServerHttpsAddr
@@ -295,38 +287,17 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := mSessionStore.Get(r, SERVER_SESSION_ID)
-	if err != nil {
-		session, err = mSessionStore.New(r, SERVER_SESSION_ID)
-	}
-
-	r.ParseForm()
-	context := Context{
-		w:              w,
-		r:              r,
-		isSelfResponse: false,
-		Config:         &mCfg,
-		Session:        session,
-		UrlPath:        r.URL.Path,
-		ViewData:       make(map[string]interface{}),
-		Method:         r.Method,
-		IsGetMethod:    r.Method == METHOD_GET,
-		IsPostMethod:   r.Method == METHOD_POST,
-		IsUsingTSL:     r.TLS != nil,
-		Host:           host,
-		Form:           r.Form,
-	}
-
-	if mDBGen.IsEnable {
-		context.DB = mDBGen.NewConnect()
-		if context.DB != nil {
-			defer context.DB.Close()
-		}
-	}
+	var context *Context = nil
 
 	for _, pf := range mListFilter {
 		if ext.WildMatch(pf.Pattern, path) {
-			pf.HandleFunc(&context)
+			if context == nil {
+				context = createContext(w, r)
+				if context.DB != nil {
+					defer context.DB.Close()
+				}
+			}
+			pf.HandleFunc(context)
 
 			if context.RedirectStatus != 0 {
 				http.Redirect(w, r, context.RedirectPath, context.RedirectStatus)
@@ -347,7 +318,13 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if vars, matched := ext.VarMatch(pf.Pattern, path); matched {
 			context.RouteVars = vars
 			/*-----------------------------*/
-			pf.HandleFunc(&context)
+			if context == nil {
+				context = createContext(w, r)
+				if context.DB != nil {
+					defer context.DB.Close()
+				}
+			}
+			pf.HandleFunc(context)
 			context.Session.Save(r, w)
 			/*-----------------------------*/
 
@@ -360,18 +337,24 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			renderView(&context)
+			renderView(context)
 
 			return
 		}
 	}
 
-	context.w.WriteHeader(http.StatusNotFound)
+	w.WriteHeader(http.StatusNotFound)
 	if mHandle404 != nil {
-		mHandle404(&context)
-		renderView(&context)
+		if context == nil {
+			context = createContext(w, r)
+			if context.DB != nil {
+				defer context.DB.Close()
+			}
+		}
+		mHandle404(context)
+		renderView(context)
 	} else {
-		context.WriteS("404 - Not found")
+		w.Write([]byte("404 - Not found"))
 	}
 }
 
@@ -442,4 +425,50 @@ func startDeleteSessionStoreJob() {
 			time.Sleep(24 * time.Hour)
 		}
 	}()
+}
+
+func createContext(w http.ResponseWriter, r *http.Request) *Context {
+	host := getHost(r)
+
+	session, err := mSessionStore.Get(r, SERVER_SESSION_ID)
+	if err != nil {
+		session, err = mSessionStore.New(r, SERVER_SESSION_ID)
+	}
+
+	r.ParseForm()
+	context := Context{
+		w:              w,
+		r:              r,
+		isSelfResponse: false,
+		Config:         &mCfg,
+		Session:        session,
+		UrlPath:        r.URL.Path,
+		ViewData:       make(map[string]interface{}),
+		Method:         r.Method,
+		IsGetMethod:    r.Method == METHOD_GET,
+		IsPostMethod:   r.Method == METHOD_POST,
+		IsUsingTSL:     r.TLS != nil,
+		Host:           host,
+		Form:           r.Form,
+	}
+
+	if mDBGen.IsEnable {
+		context.DB = mDBGen.NewConnect()
+	}
+	return &context
+}
+
+func getHost(r *http.Request) string {
+	host := r.Host
+	if r.TLS == nil {
+		if strings.HasSuffix(r.Host, mServerHttpAddr) {
+			host = host[:len(host) - len(mServerHttpAddr)]
+		}
+	} else {
+		if strings.HasSuffix(r.Host, mServerHttpsAddr) {
+			host = host[:len(host) - len(mServerHttpsAddr)]
+		}
+	}
+
+	return host
 }
