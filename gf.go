@@ -256,12 +256,10 @@ func Handle404(f func(*Context)) {
 type gfHandler struct{}
 
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var host string = ""
-
 	path := r.URL.EscapedPath()
 
 	if mForeHttps == 1 && r.TLS == nil {
-		host = getHost(r)
+		host := getHost(r)
 		httpsUrl := "https://" + host
 		if mServerHttpsAddr != DEFAULT_HTTPS_PORT {
 			httpsUrl = httpsUrl + mServerHttpsAddr
