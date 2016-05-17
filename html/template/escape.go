@@ -482,10 +482,11 @@ func (e *escaper) escapeListConditionally(c context, n *parse.ListNode, filter f
 
 // escapeTemplate escapes a {{template}} call node.
 func (e *escaper) escapeTemplate(c context, n *parse.TemplateNode) context {
-	c, name := e.escapeTree(c, n, n.Name, n.Line)
-	if name != n.Name {
-		e.editTemplateNode(n, name)
-	}
+	c, _ = e.escapeTree(c, n, n.Name, n.Line)
+	//Goframwork 2016-05-05: No rename template/block nodes
+	//if name != n.Name {
+	//	e.editTemplateNode(n, name)
+	//}
 	return c
 }
 

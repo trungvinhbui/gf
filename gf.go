@@ -1,20 +1,21 @@
 package gf
 
 import (
+	"compress/gzip"
+	"fmt"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/ext"
+	"github.com/goframework/gf/fsgzip"
 	"github.com/goframework/gf/html/template"
 	"github.com/goframework/gf/sessions"
-	"github.com/goframework/gf/fsgzip"
 	"golang.org/x/net/http2"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"path/filepath"
-	"time"
 	"os"
-	"compress/gzip"
-	"io/ioutil"
+	"path/filepath"
 	"strings"
+	"time"
 )
 
 const DEFAULT_HTTPS_PORT = ":443"
@@ -134,8 +135,9 @@ func Run() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if !strings.HasSuffix(mStaticDir, "/") {
-		mStaticDir = mStaticDir + "/"
+	separator := fmt.Sprintf("%c", filepath.Separator)
+	if !strings.HasSuffix(mStaticDir, separator) {
+		mStaticDir = mStaticDir + separator
 	}
 
 	mViewDir, err = filepath.Abs(cfViewDir)
@@ -254,11 +256,12 @@ func Handle404(f func(*Context)) {
 type gfHandler struct{}
 
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var host string = ""
+
 	path := r.URL.EscapedPath()
 
-
 	if mForeHttps == 1 && r.TLS == nil {
-		host := getHost(r)
+		host = getHost(r)
 		httpsUrl := "https://" + host
 		if mServerHttpsAddr != DEFAULT_HTTPS_PORT {
 			httpsUrl = httpsUrl + mServerHttpsAddr
@@ -272,18 +275,23 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		path = mStaticWebPath + DEFAULT_FAVICON_PATH[1:]
 	}
 	if strings.HasPrefix(path, mStaticWebPath) {
-		path = path[len(mStaticWebPath):]
-		staticFile := mStaticDir + path
-		if ext.FileExists(staticFile) && r.Method == METHOD_GET {
-			if mEnableGzip == 1 {
-				fsgzip.ServeFile(w, r, staticFile)
-			} else {
-				http.ServeFile(w, r, staticFile)
+		if r.Method == METHOD_GET {
+			path = path[len(mStaticWebPath):]
+			staticFile, err := filepath.Abs(mStaticDir + path)
+			log.Println("staticFile: " + staticFile + "; mStaticDir " + mStaticDir)
+			if err == nil && strings.HasPrefix(staticFile, mStaticDir) && ext.FileExists(staticFile) {
+				if mEnableGzip == 1 {
+					fsgzip.ServeFile(w, r, staticFile)
+				} else {
+					http.ServeFile(w, r, staticFile)
+				}
+				return
 			}
-		} else {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("404 - Not found"))
 		}
+
+		//Not GET method or file not exist
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("404 - Not found"))
 		return
 	}
 
