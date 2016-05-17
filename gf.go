@@ -276,7 +276,6 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if r.Method == METHOD_GET {
 			path = path[len(mStaticWebPath):]
 			staticFile, err := filepath.Abs(mStaticDir + path)
-			log.Println("staticFile: " + staticFile + "; mStaticDir " + mStaticDir)
 			if err == nil && strings.HasPrefix(staticFile, mStaticDir) && ext.FileExists(staticFile) {
 				if mEnableGzip == 1 {
 					fsgzip.ServeFile(w, r, staticFile)
