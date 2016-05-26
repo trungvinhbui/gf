@@ -449,7 +449,7 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 		Session:        session,
 		UrlPath:        r.URL.Path,
 		ViewData:       map[string]interface{}{
-			csrf.TemplateTag : template.HTML(csrf.TemplateField(r)),
+			csrf.TemplateTag : csrf.TemplateField(r),
 			"csrfKey": csrfKey,
 			"csrfToken": csrfToken,
 		},

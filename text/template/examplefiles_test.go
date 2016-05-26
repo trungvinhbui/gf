@@ -10,7 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"gf/text/template"
+	"github.com/goframework/gf/text/template"
 )
 
 // templateFile defines the contents of a template to be stored in a file, for testing.

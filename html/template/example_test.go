@@ -6,7 +6,7 @@ package template_test
 
 import (
 	"fmt"
-	"gf/html/template"
+	"github.com/goframework/gf/html/template"
 	"log"
 	"os"
 )

@@ -5,11 +5,11 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
-	"html/template"
 	"net/http"
 	"net/url"
 
 	"github.com/goframework/gf/context"
+	"github.com/goframework/gf/html/template"
 )
 
 // Token returns a masked CSRF token ready for passing into HTML template or

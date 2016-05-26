@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
-	"gf/text/template"
+	"github.com/goframework/gf/text/template"
 )
 
 // This example demonstrates a custom function to process template text.

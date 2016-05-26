@@ -9,7 +9,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"testing"
-	"gf/text/template/parse"
+	"github.com/goframework/gf/text/template/parse"
 )
 
 func TestAddParseTree(t *testing.T) {
