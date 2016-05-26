@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"github.com/goframework/gf/cfg"
+	"github.com/goframework/gf/csrf"
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/fsgzip"
 	"github.com/goframework/gf/html/template"
@@ -52,7 +53,6 @@ var mViewDir string
 var mStaticWebPath string
 var mSessionStoreDir string
 var mEnableGzip = 1
-var mEnableHttps = 0
 var mForeHttps = 0
 
 var mServerHttpAddr string
@@ -97,7 +97,6 @@ func Run() {
 
 	mServerHttpAddr = cfAddr
 	mServerHttpsAddr = cfAddrHttps
-	mEnableHttps = cfEnableHttps
 
 	mEnableGzip = mCfg.Int("Server.EnableGzip", DEFAULT_SERVER_ENABLE_GZIP)
 	mForeHttps = mCfg.Int("Server.ForceHttps", DEFAULT_SERVER_FORCE_HTTPS)
@@ -163,7 +162,7 @@ func Run() {
 		ReadTimeout:    time.Duration(cfReadTimeout) * time.Second,
 		WriteTimeout:   time.Duration(cfWriteTimeout) * time.Second,
 		MaxHeaderBytes: cfMaxHeaderBytes,
-		Handler:        &gfHandler{},
+		Handler:        csrf.Protect([]byte(cfCookieSecret), csrf.Secure(false))( &gfHandler{}),
 	}
 
 	serverHttps := &http.Server{
@@ -171,7 +170,7 @@ func Run() {
 		ReadTimeout:    time.Duration(cfReadTimeout) * time.Second,
 		WriteTimeout:   time.Duration(cfWriteTimeout) * time.Second,
 		MaxHeaderBytes: cfMaxHeaderBytes,
-		Handler:        &gfHandler{},
+		Handler:        csrf.Protect([]byte(cfCookieSecret), csrf.Secure(true))( &gfHandler{}),
 	}
 
 	errChanHttp := make(chan error)
@@ -441,6 +440,7 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 	}
 
 	r.ParseForm()
+	csrfKey, csrfToken := csrf.TokenField(r)
 	context := Context{
 		w:              w,
 		r:              r,
@@ -448,13 +448,17 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 		Config:         &mCfg,
 		Session:        session,
 		UrlPath:        r.URL.Path,
-		ViewData:       make(map[string]interface{}),
+		ViewData:       map[string]interface{}{
+			csrf.TemplateTag : template.HTML(csrf.TemplateField(r)),
+			"csrfKey": csrfKey,
+			"csrfToken": csrfToken,
+		},
 		Method:         r.Method,
 		IsGetMethod:    r.Method == METHOD_GET,
 		IsPostMethod:   r.Method == METHOD_POST,
 		IsUsingTSL:     r.TLS != nil,
 		Host:           host,
-		Form:           r.Form,
+		Form:           Form{r.Form},
 	}
 
 	if mDBGen.IsEnable {
