@@ -245,9 +245,7 @@ func (t *Tree) add(treeSet map[string]*Tree) {
 	tree := treeSet[t.Name]
 	if tree == nil ||
 		t.typ == itemDefine ||
-		t.typ == itemFill ||
-		t.typ == itemAppend ||
-		t.typ == itemPrepend {
+		t.typ == itemFill {
 		t.CountDefine = 1
 		treeSet[t.Name] = t
 	} else {
