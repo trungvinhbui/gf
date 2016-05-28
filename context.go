@@ -1,13 +1,13 @@
 package gf
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/sessions"
-	"net/http"
-	"database/sql"
 	"io"
+	"net/http"
 	"time"
 )
 
@@ -36,7 +36,7 @@ type Context struct {
 	Form           Form
 	Host           string
 
-	DB             *sql.DB
+	DB *sql.DB
 }
 
 func (ctx *Context) Redirect(path string) {
@@ -152,7 +152,7 @@ func (ctx *Context) SetPersistentCookie(key string, value string, duration time.
 
 // Unset cookie
 func (ctx *Context) DeleteCookie(key string) {
-	ctx.AddResponseHeader("Set-Cookie", key + "=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")
+	ctx.AddResponseHeader("Set-Cookie", key+"=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")
 }
 
 func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, error) {
@@ -173,4 +173,3 @@ func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, erro
 
 	return fileName, file, nil
 }
-

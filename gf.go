@@ -162,7 +162,7 @@ func Run() {
 		ReadTimeout:    time.Duration(cfReadTimeout) * time.Second,
 		WriteTimeout:   time.Duration(cfWriteTimeout) * time.Second,
 		MaxHeaderBytes: cfMaxHeaderBytes,
-		Handler:        csrf.Protect([]byte(cfCookieSecret), csrf.Secure(false))( &gfHandler{}),
+		Handler:        csrf.Protect([]byte(cfCookieSecret), csrf.Secure(false))(&gfHandler{}),
 	}
 
 	serverHttps := &http.Server{
@@ -170,7 +170,7 @@ func Run() {
 		ReadTimeout:    time.Duration(cfReadTimeout) * time.Second,
 		WriteTimeout:   time.Duration(cfWriteTimeout) * time.Second,
 		MaxHeaderBytes: cfMaxHeaderBytes,
-		Handler:        csrf.Protect([]byte(cfCookieSecret), csrf.Secure(true))( &gfHandler{}),
+		Handler:        csrf.Protect([]byte(cfCookieSecret), csrf.Secure(true))(&gfHandler{}),
 	}
 
 	errChanHttp := make(chan error)
@@ -378,7 +378,7 @@ func renderView(context *Context) {
 		tem, err := template.ParseFiles(viewFiles...)
 		if err != nil {
 			log.Println("Error while parsing template:\n" + err.Error())
-			http.Error(context.w, "ParseFiles: " + err.Error(), http.StatusInternalServerError)
+			http.Error(context.w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -414,7 +414,7 @@ func startDeleteSessionStoreJob() {
 			if err == nil {
 				for _, f := range files {
 					if f.ModTime().Before(monthAgo) {
-						if os.Remove(mSessionStoreDir + "/" + f.Name()) == nil {
+						if os.Remove(mSessionStoreDir+"/"+f.Name()) == nil {
 							count++
 						}
 					}
@@ -448,17 +448,17 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 		Config:         &mCfg,
 		Session:        session,
 		UrlPath:        r.URL.Path,
-		ViewData:       map[string]interface{}{
-			csrf.TemplateTag : csrf.TemplateField(r),
-			"csrfKey": csrfKey,
-			"csrfToken": csrfToken,
+		ViewData: map[string]interface{}{
+			csrf.TemplateTag: csrf.TemplateField(r),
+			"csrfKey":        csrfKey,
+			"csrfToken":      csrfToken,
 		},
-		Method:         r.Method,
-		IsGetMethod:    r.Method == METHOD_GET,
-		IsPostMethod:   r.Method == METHOD_POST,
-		IsUsingTSL:     r.TLS != nil,
-		Host:           host,
-		Form:           Form{r.Form},
+		Method:       r.Method,
+		IsGetMethod:  r.Method == METHOD_GET,
+		IsPostMethod: r.Method == METHOD_POST,
+		IsUsingTSL:   r.TLS != nil,
+		Host:         host,
+		Form:         Form{r.Form},
 	}
 
 	if mDBGen.IsEnable {
@@ -471,11 +471,11 @@ func getHost(r *http.Request) string {
 	host := r.Host
 	if r.TLS == nil {
 		if strings.HasSuffix(r.Host, mServerHttpAddr) {
-			host = host[:len(host) - len(mServerHttpAddr)]
+			host = host[:len(host)-len(mServerHttpAddr)]
 		}
 	} else {
 		if strings.HasSuffix(r.Host, mServerHttpsAddr) {
-			host = host[:len(host) - len(mServerHttpsAddr)]
+			host = host[:len(host)-len(mServerHttpsAddr)]
 		}
 	}
 
