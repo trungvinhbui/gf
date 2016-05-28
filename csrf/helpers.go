@@ -16,7 +16,7 @@ import (
 // a JSON response body. An empty token will be returned if the middleware
 // has not been applied (which will fail subsequent validation).
 func Token(r *http.Request) string {
-	if val, ok := context.GetOk(r, tokenKey); ok {
+	if val, ok := context.GetOk(r, TokenKey); ok {
 		if maskedToken, ok := val.(string); ok {
 			return maskedToken
 		}
@@ -29,7 +29,7 @@ func Token(r *http.Request) string {
 // This is useful when you want to log the cause of the error or report it to
 // client.
 func FailureReason(r *http.Request) error {
-	if val, ok := context.GetOk(r, errorKey); ok {
+	if val, ok := context.GetOk(r, ErrorKey); ok {
 		if err, ok := val.(error); ok {
 			return err
 		}
@@ -50,7 +50,7 @@ func FailureReason(r *http.Request) error {
 //      <input type="hidden" name="gorilla.csrf.Token" value="<token>">
 //
 func TemplateField(r *http.Request) template.HTML {
-	name, ok := context.GetOk(r, formKey)
+	name, ok := context.GetOk(r, FormKey)
 	if ok {
 		fragment := fmt.Sprintf(`<input type="hidden" name="%s" value="%s">`,
 			name, Token(r))
@@ -68,8 +68,8 @@ func TemplateField(r *http.Request) template.HTML {
 // token and returning them together as a 64-byte slice. This effectively
 // randomises the token on a per-request basis without breaking multiple browser
 // tabs/windows.
-func mask(realToken []byte, r *http.Request) string {
-	otp, err := generateRandomBytes(tokenLength)
+func Mask(realToken []byte, r *http.Request) string {
+	otp, err := GenerateRandomBytes(TokenLength)
 	if err != nil {
 		return ""
 	}
@@ -82,15 +82,15 @@ func mask(realToken []byte, r *http.Request) string {
 
 // unmask splits the issued token (one-time-pad + masked token) and returns the
 // unmasked request token for comparison.
-func unmask(issued []byte) []byte {
+func Unmask(issued []byte) []byte {
 	// Issued tokens are always masked and combined with the pad.
-	if len(issued) != tokenLength*2 {
+	if len(issued) != TokenLength *2 {
 		return nil
 	}
 
 	// We now know the length of the byte slice.
-	otp := issued[tokenLength:]
-	masked := issued[:tokenLength]
+	otp := issued[TokenLength:]
+	masked := issued[:TokenLength]
 
 	// Unmask the token by XOR'ing it against the OTP used to mask it.
 	return xorToken(otp, masked)
@@ -98,18 +98,18 @@ func unmask(issued []byte) []byte {
 
 // requestToken returns the issued token (pad + masked token) from the HTTP POST
 // body or HTTP header. It will return nil if the token fails to decode.
-func (cs *csrf) requestToken(r *http.Request) []byte {
+func (cs *CsrfProtection) RequestToken(r *http.Request) []byte {
 	// 1. Check the HTTP header first.
-	issued := r.Header.Get(cs.opts.RequestHeader)
+	issued := r.Header.Get(cs.Opts.RequestHeader)
 
 	// 2. Fall back to the POST (form) value.
 	if issued == "" {
-		issued = r.PostFormValue(cs.opts.FieldName)
+		issued = r.PostFormValue(cs.Opts.FieldName)
 	}
 
 	// 3. Finally, fall back to the multipart form (if set).
 	if issued == "" && r.MultipartForm != nil {
-		vals := r.MultipartForm.Value[cs.opts.FieldName]
+		vals := r.MultipartForm.Value[cs.Opts.FieldName]
 
 		if len(vals) > 0 {
 			issued = vals[0]
@@ -129,7 +129,7 @@ func (cs *csrf) requestToken(r *http.Request) []byte {
 // generateRandomBytes returns securely generated random bytes.
 // It will return an error if the system's secure random number generator
 // fails to function correctly.
-func generateRandomBytes(n int) ([]byte, error) {
+func GenerateRandomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	// err == nil only if len(b) == n
@@ -143,13 +143,13 @@ func generateRandomBytes(n int) ([]byte, error) {
 
 // sameOrigin returns true if URLs a and b share the same origin. The same
 // origin is defined as host (which includes the port) and scheme.
-func sameOrigin(a, b *url.URL) bool {
+func SameOrigin(a, b *url.URL) bool {
 	return (a.Scheme == b.Scheme && a.Host == b.Host)
 }
 
 // compare securely (constant-time) compares the unmasked token from the request
 // against the real token from the session.
-func compareTokens(a, b []byte) bool {
+func CompareTokens(a, b []byte) bool {
 	// This is required as subtle.ConstantTimeCompare does not check for equal
 	// lengths in Go versions prior to 1.3.
 	if len(a) != len(b) {
@@ -180,7 +180,7 @@ func xorToken(a, b []byte) []byte {
 
 // contains is a helper function to check if a string exists in a slice - e.g.
 // whether a HTTP method exists in a list of safe methods.
-func contains(vals []string, s string) bool {
+func Contains(vals []string, s string) bool {
 	for _, v := range vals {
 		if v == s {
 			return true
@@ -191,12 +191,6 @@ func contains(vals []string, s string) bool {
 }
 
 // envError stores a CSRF error in the request context.
-func envError(r *http.Request, err error) {
-	context.Set(r, errorKey, err)
-}
-
-// TokenField return name and value for hidden CSRF input tag
-func TokenField(r *http.Request) (name string, token string) {
-	return	tokenKey, Token(r)
-
+func EnvError(r *http.Request, err error) {
+	context.Set(r, ErrorKey, err)
 }

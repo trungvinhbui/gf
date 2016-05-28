@@ -3,13 +3,13 @@ package csrf
 import "net/http"
 
 // Option describes a functional option for configuring the CSRF handler.
-type Option func(*csrf)
+type Option func(*CsrfProtection)
 
 // MaxAge sets the maximum age (in seconds) of a CSRF token's underlying cookie.
 // Defaults to 12 hours.
 func MaxAge(age int) Option {
-	return func(cs *csrf) {
-		cs.opts.MaxAge = age
+	return func(cs *CsrfProtection) {
+		cs.Opts.MaxAge = age
 	}
 }
 
@@ -20,8 +20,8 @@ func MaxAge(age int) Option {
 // being prefixed with a '.' - e.g. "example.com" becomes ".example.com" and
 // matches "www.example.com" and "secure.example.com".
 func Domain(domain string) Option {
-	return func(cs *csrf) {
-		cs.opts.Domain = domain
+	return func(cs *CsrfProtection) {
+		cs.Opts.Domain = domain
 	}
 }
 
@@ -32,8 +32,8 @@ func Domain(domain string) Option {
 // subpaths - i.e. a cookie issued from "/register" would be included in requests
 // to "/register/step2" and "/register/submit".
 func Path(p string) Option {
-	return func(cs *csrf) {
-		cs.opts.Path = p
+	return func(cs *CsrfProtection) {
+		cs.Opts.Path = p
 	}
 }
 
@@ -43,18 +43,18 @@ func Path(p string) Option {
 // environmental variable is a good way of making sure this won't make it to a
 // production environment.
 func Secure(s bool) Option {
-	return func(cs *csrf) {
-		cs.opts.Secure = s
+	return func(cs *CsrfProtection) {
+		cs.Opts.Secure = s
 	}
 }
 
 // HttpOnly sets the 'HttpOnly' flag on the cookie. Defaults to true (recommended).
 func HttpOnly(h bool) Option {
-	return func(cs *csrf) {
+	return func(cs *CsrfProtection) {
 		// Note that the function and field names match the case of the
 		// related http.Cookie field instead of the "correct" HTTPOnly name
 		// that golint suggests.
-		cs.opts.HttpOnly = h
+		cs.Opts.HttpOnly = h
 	}
 }
 
@@ -66,24 +66,24 @@ func HttpOnly(h bool) Option {
 // Note that a custom error handler can also access the csrf.Failure(r)
 // function to retrieve the CSRF validation reason from the request context.
 func ErrorHandler(h http.Handler) Option {
-	return func(cs *csrf) {
-		cs.opts.ErrorHandler = h
+	return func(cs *CsrfProtection) {
+		cs.Opts.ErrorHandler = h
 	}
 }
 
 // RequestHeader allows you to change the request header the CSRF middleware
 // inspects. The default is X-CSRF-Token.
 func RequestHeader(header string) Option {
-	return func(cs *csrf) {
-		cs.opts.RequestHeader = header
+	return func(cs *CsrfProtection) {
+		cs.Opts.RequestHeader = header
 	}
 }
 
 // FieldName allows you to change the name attribute of the hidden <input> field
 // inspected by this package. The default is 'gorilla.csrf.Token'.
 func FieldName(name string) Option {
-	return func(cs *csrf) {
-		cs.opts.FieldName = name
+	return func(cs *CsrfProtection) {
+		cs.Opts.FieldName = name
 	}
 }
 
@@ -91,32 +91,32 @@ func FieldName(name string) Option {
 //
 // Note that cookie names should not contain whitespace, commas, semicolons,
 // backslashes or control characters as per RFC6265.
-func CookieName(name string) Option {
-	return func(cs *csrf) {
-		cs.opts.CookieName = name
+func _CookieName(name string) Option {
+	return func(cs *CsrfProtection) {
+		cs.Opts.CookieName = name
 	}
 }
 
 // setStore sets the store used by the CSRF middleware.
 // Note: this is private (for now) to allow for internal API changes.
 func setStore(s store) Option {
-	return func(cs *csrf) {
-		cs.st = s
+	return func(cs *CsrfProtection) {
+		cs.St = s
 	}
 }
 
 // parseOptions parses the supplied options functions and returns a configured
 // csrf handler.
-func parseOptions(h http.Handler, opts ...Option) *csrf {
+func parseOptions(h http.Handler, opts ...Option) *CsrfProtection {
 	// Set the handler to call after processing.
-	cs := &csrf{
+	cs := &CsrfProtection{
 		h: h,
 	}
 
 	// Default to true. See Secure & HttpOnly function comments for rationale.
 	// Set here to allow package users to override the default.
-	cs.opts.Secure = true
-	cs.opts.HttpOnly = true
+	cs.Opts.Secure = true
+	cs.Opts.HttpOnly = true
 
 	// Range over each options function and apply it
 	// to our csrf type to configure it. Options functions are

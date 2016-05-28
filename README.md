@@ -27,7 +27,7 @@ Server.ForceHttps		= 0
 Server.EnableHttps		= 0
 #IF Server.EnableHttps = 1, set bellow:
 #Server.AddrHttps 		= :44316
-#Server.CertFile		= cert.pem
+#Server.CertFile		= fullchain.pem
 #Server.KeyFile			= key.pem
 #Create cert.pem and key.pem by:
 #  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout key.pem -out cert.pem

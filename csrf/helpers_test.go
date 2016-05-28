@@ -53,8 +53,8 @@ func TestFormToken(t *testing.T) {
 			rr.Code, http.StatusOK)
 	}
 
-	if len(token) != base64.StdEncoding.EncodedLen(tokenLength*2) {
-		t.Fatalf("token length invalid: got %v want %v", len(token), base64.StdEncoding.EncodedLen(tokenLength*2))
+	if len(token) != base64.StdEncoding.EncodedLen(TokenLength *2) {
+		t.Fatalf("token length invalid: got %v want %v", len(token), base64.StdEncoding.EncodedLen(TokenLength *2))
 	}
 
 	if !strings.Contains(rr.Body.String(), token) {
@@ -123,7 +123,7 @@ func TestMultipartFormToken(t *testing.T) {
 // TestMaskUnmaskTokens tests that a token traversing the mask -> unmask process
 // is correctly unmasked to the original 'real' token.
 func TestMaskUnmaskTokens(t *testing.T) {
-	realToken, err := generateRandomBytes(tokenLength)
+	realToken, err := generateRandomBytes(TokenLength)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestGenerateRandomBytes(t *testing.T) {
 		rand.Reader = original
 	}()
 
-	b, err := generateRandomBytes(tokenLength)
+	b, err := generateRandomBytes(TokenLength)
 	if err == nil {
 		t.Fatalf("generateRandomBytes did not report a short read: only read %d bytes", len(b))
 	}

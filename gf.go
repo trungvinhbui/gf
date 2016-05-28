@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"net/url"
 )
 
 const DEFAULT_HTTPS_PORT = ":443"
@@ -48,6 +49,8 @@ const SERVER_SESSION_ID string = "session_id"
 const METHOD_GET string = "GET"
 const METHOD_POST string = "POST"
 
+const _IS_CSRF_PROTECTED string = "_IS_CSRF_PROTECTED"
+
 var mStaticDir string
 var mViewDir string
 var mStaticWebPath string
@@ -70,6 +73,7 @@ var mListFilter []patternFunc
 var mListHandle []patternFunc
 var mHandle404 func(*Context)
 var mDBGen *sqlDBFactory
+var mCsrfProtection *csrf.CsrfProtection
 
 var mSessionStore *sessions.FilesystemStore
 
@@ -156,13 +160,14 @@ func Run() {
 
 	mSessionStore = sessions.NewFilesystemStore(mSessionStoreDir, []byte(cfCookieSecret))
 	mSessionStore.MaxAge(0) // session only
+	mCsrfProtection = csrf.InitCsrf([]byte(cfCookieSecret), csrf.Secure(false))
 
 	serverHttp := &http.Server{
 		Addr:           cfAddr,
 		ReadTimeout:    time.Duration(cfReadTimeout) * time.Second,
 		WriteTimeout:   time.Duration(cfWriteTimeout) * time.Second,
 		MaxHeaderBytes: cfMaxHeaderBytes,
-		Handler:        csrf.Protect([]byte(cfCookieSecret), csrf.Secure(false))(&gfHandler{}),
+		Handler:        &gfHandler{},
 	}
 
 	serverHttps := &http.Server{
@@ -170,7 +175,7 @@ func Run() {
 		ReadTimeout:    time.Duration(cfReadTimeout) * time.Second,
 		WriteTimeout:   time.Duration(cfWriteTimeout) * time.Second,
 		MaxHeaderBytes: cfMaxHeaderBytes,
-		Handler:        csrf.Protect([]byte(cfCookieSecret), csrf.Secure(true))(&gfHandler{}),
+		Handler:        &gfHandler{},
 	}
 
 	errChanHttp := make(chan error)
@@ -257,15 +262,19 @@ type gfHandler struct{}
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.EscapedPath()
 
-	if mForeHttps == 1 && r.TLS == nil {
-		host := getHost(r)
-		httpsUrl := "https://" + host
-		if mServerHttpsAddr != DEFAULT_HTTPS_PORT {
-			httpsUrl = httpsUrl + mServerHttpsAddr
-		}
+	if mForeHttps != 0 {
+		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 
-		http.Redirect(w, r, httpsUrl, http.StatusFound)
-		return
+		if  r.TLS == nil {
+			host := getHost(r)
+			httpsUrl := "https://" + host
+			if mServerHttpsAddr != DEFAULT_HTTPS_PORT {
+				httpsUrl = httpsUrl + mServerHttpsAddr
+			}
+
+			http.Redirect(w, r, httpsUrl, http.StatusFound)
+			return
+		}
 	}
 
 	if path == DEFAULT_FAVICON_PATH {
@@ -301,6 +310,11 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					defer context.DB.Close()
 				}
 			}
+
+			if !csrfProtectHTTP(context) {
+				return
+			}
+
 			pf.HandleFunc(context)
 
 			if context.RedirectStatus != 0 {
@@ -327,6 +341,9 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if context.DB != nil {
 					defer context.DB.Close()
 				}
+			}
+			if !csrfProtectHTTP(context) {
+				return
 			}
 			pf.HandleFunc(context)
 			context.Session.Save(r, w)
@@ -355,6 +372,9 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				defer context.DB.Close()
 			}
 		}
+		if !csrfProtectHTTP(context) {
+			return
+		}
 		mHandle404(context)
 		renderView(context)
 	} else {
@@ -378,7 +398,7 @@ func renderView(context *Context) {
 		tem, err := template.ParseFiles(viewFiles...)
 		if err != nil {
 			log.Println("Error while parsing template:\n" + err.Error())
-			http.Error(context.w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
+			http.Error(context.w, "ParseFiles: " + err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -414,7 +434,7 @@ func startDeleteSessionStoreJob() {
 			if err == nil {
 				for _, f := range files {
 					if f.ModTime().Before(monthAgo) {
-						if os.Remove(mSessionStoreDir+"/"+f.Name()) == nil {
+						if os.Remove(mSessionStoreDir + "/" + f.Name()) == nil {
 							count++
 						}
 					}
@@ -440,30 +460,28 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 	}
 
 	r.ParseForm()
-	csrfKey, csrfToken := csrf.TokenField(r)
+
 	context := Context{
 		w:              w,
 		r:              r,
+		vars: 			map[string]interface{}{},
 		isSelfResponse: false,
 		Config:         &mCfg,
 		Session:        session,
 		UrlPath:        r.URL.Path,
-		ViewData: map[string]interface{}{
-			csrf.TemplateTag: csrf.TemplateField(r),
-			"csrfKey":        csrfKey,
-			"csrfToken":      csrfToken,
-		},
-		Method:       r.Method,
-		IsGetMethod:  r.Method == METHOD_GET,
-		IsPostMethod: r.Method == METHOD_POST,
-		IsUsingTSL:   r.TLS != nil,
-		Host:         host,
-		Form:         Form{r.Form},
+		ViewData:       map[string]interface{}{},
+		Method:         r.Method,
+		IsGetMethod:    r.Method == METHOD_GET,
+		IsPostMethod:   r.Method == METHOD_POST,
+		IsUsingTSL:     r.TLS != nil,
+		Host:           host,
+		Form:           Form{r.Form},
 	}
 
 	if mDBGen.IsEnable {
 		context.DB = mDBGen.NewConnect()
 	}
+
 	return &context
 }
 
@@ -471,13 +489,114 @@ func getHost(r *http.Request) string {
 	host := r.Host
 	if r.TLS == nil {
 		if strings.HasSuffix(r.Host, mServerHttpAddr) {
-			host = host[:len(host)-len(mServerHttpAddr)]
+			host = host[:len(host) - len(mServerHttpAddr)]
 		}
 	} else {
 		if strings.HasSuffix(r.Host, mServerHttpsAddr) {
-			host = host[:len(host)-len(mServerHttpsAddr)]
+			host = host[:len(host) - len(mServerHttpsAddr)]
 		}
 	}
 
 	return host
+}
+
+
+// Protect http request, return true if no problem happend
+
+// Protect is HTTP middleware that provides Cross-Site Request Forgery
+// protection.
+//
+// It securely generates a masked (unique-per-request) token that
+// can be embedded in the HTTP response (e.g. form field or HTTP header).
+// The original (unmasked) token is stored in the session, which is inaccessible
+// by an attacker (provided you are using HTTPS). Subsequent requests are
+// expected to include this token, which is compared against the session token.
+// Requests that do not provide a matching token are served with a HTTP 403
+// 'Forbidden' error response.
+func csrfProtectHTTP(ctx *Context) bool {
+
+	if v, _ := ctx.GetBool(_IS_CSRF_PROTECTED); v {
+		return true
+	}
+
+	// Retrieve the token from the session.
+	// An error represents either a cookie that failed HMAC validation
+	// or that doesn't exist.
+	r := ctx.r
+	w := ctx.w
+
+	realToken, err := mCsrfProtection.St.Get(r)
+	if err != nil || len(realToken) != csrf.TokenLength {
+		// If there was an error retrieving the token, the token doesn't exist
+		// yet, or it's the wrong length, generate a new token.
+		// Note that the new token will (correctly) fail validation downstream
+		// as it will no longer match the request token.
+		realToken, err = csrf.GenerateRandomBytes(csrf.TokenLength )
+		if err != nil {
+			csrf.EnvError(r, err)
+			mCsrfProtection.Opts.ErrorHandler.ServeHTTP(w, r)
+			return false
+		}
+
+		// Save the new (real) token in the session store.
+		err = mCsrfProtection.St.Save(realToken, w)
+		if err != nil {
+			csrf.EnvError(r, err)
+			mCsrfProtection.Opts.ErrorHandler.ServeHTTP(w, r)
+			return false
+		}
+	}
+
+	csrfToken := csrf.Mask(realToken, r)
+
+	ctx.ViewData["csrfKey"] = csrf.TokenKey
+	ctx.ViewData["csrfToken"] = csrfToken
+	ctx.ViewData[csrf.TemplateTag] = template.HTML(fmt.Sprintf(`<input type="hidden" name="%s" value="%s">`, csrf.TokenKey, csrfToken))
+
+	// HTTP methods not defined as idempotent ("safe") under RFC7231 require
+	// inspection.
+	if !csrf.Contains(csrf.SafeMethods, r.Method) {
+		// Enforce an origin check for HTTPS connections. As per the Django CSRF
+		// implementation (https://goo.gl/vKA7GE) the Referer header is almost
+		// always present for same-domain HTTP requests.
+		if r.URL.Scheme == "https" {
+			// Fetch the Referer value. Call the error handler if it's empty or
+			// otherwise fails to parse.
+			referer, err := url.Parse(r.Referer())
+			if err != nil || referer.String() == "" {
+				csrf.EnvError(r, csrf.ErrNoReferer)
+				mCsrfProtection.Opts.ErrorHandler.ServeHTTP(w, r)
+				return false
+			}
+
+			if csrf.SameOrigin(r.URL, referer) == false {
+				csrf.EnvError(r, csrf.ErrBadReferer)
+				mCsrfProtection.Opts.ErrorHandler.ServeHTTP(w, r)
+				return false
+			}
+		}
+
+		// If the token returned from the session store is nil for non-idempotent
+		// ("unsafe") methods, call the error handler.
+		if realToken == nil {
+			csrf.EnvError(r, csrf.ErrNoToken)
+			mCsrfProtection.Opts.ErrorHandler.ServeHTTP(w, r)
+			return false
+		}
+
+		// Retrieve the combined token (pad + masked) token and unmask it.
+		requestToken := csrf.Unmask(mCsrfProtection.RequestToken(r))
+
+		// Compare the request token against the real token
+		if !csrf.CompareTokens(requestToken, realToken) {
+			csrf.EnvError(r, csrf.ErrBadToken)
+			mCsrfProtection.Opts.ErrorHandler.ServeHTTP(w, r)
+			return false
+		}
+	}
+
+	// Set the Vary: Cookie header to protect clients from caching the response.
+	w.Header().Add("Vary", "Cookie")
+	ctx.Set(_IS_CSRF_PROTECTED, true)
+	return true
 }

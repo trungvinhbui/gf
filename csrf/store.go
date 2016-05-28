@@ -39,7 +39,7 @@ func (cs *cookieStore) Get(r *http.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	token := make([]byte, tokenLength)
+	token := make([]byte, TokenLength)
 	// Decode the HMAC authenticated cookie.
 	err = cs.sc.Decode(cs.name, cookie.Value, &token)
 	if err != nil {
