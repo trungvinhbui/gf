@@ -5,10 +5,10 @@
 package template_test
 
 import (
+	"github.com/goframework/gf/text/template"
 	"log"
 	"os"
 	"strings"
-	"github.com/goframework/gf/text/template"
 )
 
 // This example demonstrates a custom function to process template text.

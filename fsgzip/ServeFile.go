@@ -7,6 +7,7 @@
 package fsgzip
 
 import (
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -22,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"compress/gzip"
 )
 
 const sniffLen = 512
@@ -270,7 +270,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 		}
 
 		w.Header().Set("Accept-Ranges", "bytes")
-		if w.Header().Get("Content-Encoding") == "" && !gzipEnable  {
+		if w.Header().Get("Content-Encoding") == "" && !gzipEnable {
 			w.Header().Set("Content-Length", strconv.FormatInt(sendSize, 10))
 		}
 	}

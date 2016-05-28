@@ -6,9 +6,9 @@ package template
 
 import (
 	"fmt"
+	"github.com/goframework/gf/text/template/parse"
 	"reflect"
 	"sync"
-	"github.com/goframework/gf/text/template/parse"
 )
 
 // common holds the information shared by related templates.

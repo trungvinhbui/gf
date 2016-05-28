@@ -178,7 +178,7 @@ func TestBadCookie(t *testing.T) {
 	}
 
 	// Replace the cookie prefix
-	badHeader := strings.Replace(CookieName +"=", rr.Header().Get("Set-Cookie"), "_badCookie", -1)
+	badHeader := strings.Replace(CookieName+"=", rr.Header().Get("Set-Cookie"), "_badCookie", -1)
 	r.Header.Set("Cookie", badHeader)
 	r.Header.Set("X-CSRF-Token", token)
 	r.Header.Set("Referer", "http://www.gorillatoolkit.org/")

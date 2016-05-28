@@ -1,8 +1,8 @@
 package gf
 
 import (
-	_ "github.com/go-sql-driver/mysql"
 	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
 	"strconv"
 )
 
@@ -19,23 +19,23 @@ type sqlDBFactory struct {
 
 func (this *sqlDBFactory) Check() error {
 	this.IsEnable = (this.Driver != "")
-	
+
 	if this.IsEnable {
 		db, err := sql.Open(this.Driver,
-			this.User + ":" + this.Pwd + "@tcp(" + this.Host + ":" + strconv.Itoa(this.Port) + ")/" + this.Database)
+			this.User+":"+this.Pwd+"@tcp("+this.Host+":"+strconv.Itoa(this.Port)+")/"+this.Database)
 		if db != nil {
 			db.Close()
 		}
-	
+
 		return err
 	}
-	
+
 	return nil
 }
 
-func (this *sqlDBFactory) NewConnect() (*sql.DB) {
+func (this *sqlDBFactory) NewConnect() *sql.DB {
 	db, err := sql.Open(this.Driver,
-		this.User + ":" + this.Pwd + "@tcp(" + this.Host + ":" + strconv.Itoa(this.Port) + ")/" + this.Database)
+		this.User+":"+this.Pwd+"@tcp("+this.Host+":"+strconv.Itoa(this.Port)+")/"+this.Database)
 	if err != nil {
 		return nil
 	}

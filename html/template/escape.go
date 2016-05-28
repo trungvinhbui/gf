@@ -7,10 +7,10 @@ package template
 import (
 	"bytes"
 	"fmt"
-	"html"
-	"io"
 	"github.com/goframework/gf/text/template"
 	"github.com/goframework/gf/text/template/parse"
+	"html"
+	"io"
 )
 
 // escapeTemplate rewrites the named template, which must be

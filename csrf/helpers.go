@@ -84,7 +84,7 @@ func Mask(realToken []byte, r *http.Request) string {
 // unmasked request token for comparison.
 func Unmask(issued []byte) []byte {
 	// Issued tokens are always masked and combined with the pad.
-	if len(issued) != TokenLength *2 {
+	if len(issued) != TokenLength*2 {
 		return nil
 	}
 

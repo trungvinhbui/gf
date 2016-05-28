@@ -8,11 +8,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/goframework/gf/text/template"
+	"github.com/goframework/gf/text/template/parse"
 	"os"
 	"strings"
 	"testing"
-	"github.com/goframework/gf/text/template"
-	"github.com/goframework/gf/text/template/parse"
 )
 
 type badMarshaler struct{}

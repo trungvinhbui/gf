@@ -7,9 +7,9 @@ package template
 import (
 	"bytes"
 	"errors"
+	"github.com/goframework/gf/text/template/parse"
 	"io/ioutil"
 	"testing"
-	"github.com/goframework/gf/text/template/parse"
 )
 
 func TestAddParseTree(t *testing.T) {

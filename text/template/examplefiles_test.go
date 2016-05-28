@@ -5,12 +5,12 @@
 package template_test
 
 import (
+	"github.com/goframework/gf/text/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"github.com/goframework/gf/text/template"
 )
 
 // templateFile defines the contents of a template to be stored in a file, for testing.

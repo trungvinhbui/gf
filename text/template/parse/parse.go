@@ -606,11 +606,10 @@ func (t *Tree) blockControl() Node {
 		// Do not pop variables; they persist until "end".
 		pipe = t.pipeline("block")
 	} else {
-		
+
 	}
 	return t.newBlock(token.pos, t.lex.lineNumber(), name, pipe)
 }
-
 
 // command:
 //	operand (space operand)*

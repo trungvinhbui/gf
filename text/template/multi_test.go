@@ -9,9 +9,9 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"github.com/goframework/gf/text/template/parse"
 	"strings"
 	"testing"
-	"github.com/goframework/gf/text/template/parse"
 )
 
 const (

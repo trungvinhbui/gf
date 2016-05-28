@@ -13,11 +13,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-	"net/url"
 )
 
 const DEFAULT_HTTPS_PORT = ":443"
@@ -265,7 +265,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if mForeHttps != 0 {
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 
-		if  r.TLS == nil {
+		if r.TLS == nil {
 			host := getHost(r)
 			httpsUrl := "https://" + host
 			if mServerHttpsAddr != DEFAULT_HTTPS_PORT {
@@ -398,7 +398,7 @@ func renderView(context *Context) {
 		tem, err := template.ParseFiles(viewFiles...)
 		if err != nil {
 			log.Println("Error while parsing template:\n" + err.Error())
-			http.Error(context.w, "ParseFiles: " + err.Error(), http.StatusInternalServerError)
+			http.Error(context.w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -434,7 +434,7 @@ func startDeleteSessionStoreJob() {
 			if err == nil {
 				for _, f := range files {
 					if f.ModTime().Before(monthAgo) {
-						if os.Remove(mSessionStoreDir + "/" + f.Name()) == nil {
+						if os.Remove(mSessionStoreDir+"/"+f.Name()) == nil {
 							count++
 						}
 					}
@@ -464,7 +464,7 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 	context := Context{
 		w:              w,
 		r:              r,
-		vars: 			map[string]interface{}{},
+		vars:           map[string]interface{}{},
 		isSelfResponse: false,
 		Config:         &mCfg,
 		Session:        session,
@@ -489,17 +489,16 @@ func getHost(r *http.Request) string {
 	host := r.Host
 	if r.TLS == nil {
 		if strings.HasSuffix(r.Host, mServerHttpAddr) {
-			host = host[:len(host) - len(mServerHttpAddr)]
+			host = host[:len(host)-len(mServerHttpAddr)]
 		}
 	} else {
 		if strings.HasSuffix(r.Host, mServerHttpsAddr) {
-			host = host[:len(host) - len(mServerHttpsAddr)]
+			host = host[:len(host)-len(mServerHttpsAddr)]
 		}
 	}
 
 	return host
 }
-
 
 // Protect http request, return true if no problem happend
 
@@ -531,7 +530,7 @@ func csrfProtectHTTP(ctx *Context) bool {
 		// yet, or it's the wrong length, generate a new token.
 		// Note that the new token will (correctly) fail validation downstream
 		// as it will no longer match the request token.
-		realToken, err = csrf.GenerateRandomBytes(csrf.TokenLength )
+		realToken, err = csrf.GenerateRandomBytes(csrf.TokenLength)
 		if err != nil {
 			csrf.EnvError(r, err)
 			mCsrfProtection.Opts.ErrorHandler.ServeHTTP(w, r)

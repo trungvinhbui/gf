@@ -53,8 +53,8 @@ func TestFormToken(t *testing.T) {
 			rr.Code, http.StatusOK)
 	}
 
-	if len(token) != base64.StdEncoding.EncodedLen(TokenLength *2) {
-		t.Fatalf("token length invalid: got %v want %v", len(token), base64.StdEncoding.EncodedLen(TokenLength *2))
+	if len(token) != base64.StdEncoding.EncodedLen(TokenLength*2) {
+		t.Fatalf("token length invalid: got %v want %v", len(token), base64.StdEncoding.EncodedLen(TokenLength*2))
 	}
 
 	if !strings.Contains(rr.Body.String(), token) {

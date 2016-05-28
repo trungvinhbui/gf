@@ -13,11 +13,10 @@ const TokenLength = 32
 
 // Context/session keys & prefixes
 const (
-	TokenKey string = "csrf.Token"
-	FormKey string = "csrf.Form"
-	ErrorKey string = "csrf.Error"
+	TokenKey   string = "csrf.Token"
+	FormKey    string = "csrf.Form"
+	ErrorKey   string = "csrf.Error"
 	CookieName string = "_csrf"
-
 )
 
 var (
