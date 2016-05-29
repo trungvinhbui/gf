@@ -11,6 +11,7 @@ import (
 	"github.com/goframework/gf/text/template/parse"
 	"html"
 	"io"
+	"strconv"
 )
 
 // escapeTemplate rewrites the named template, which must be
@@ -502,6 +503,44 @@ func (e *escaper) escapeTree(c context, node parse.Node, name string, line int) 
 		return out, dname
 	}
 	t := e.template(name)
+	if t == nil {
+		var retContext context
+		okContext := false
+
+		t = e.template("prepend:" + name)
+		if t != nil {
+			for i := t.CountDefine; i > 1; i-- {
+				tSub := e.template("prepend:" + name + ":" + strconv.Itoa(i))
+				if t != nil {
+					retContext = e.computeOutCtx(c, tSub)
+				}
+			}
+			retContext = e.computeOutCtx(c, t)
+			okContext = true
+		}
+
+		t = e.template("fill:" + name)
+		if t != nil {
+			retContext = e.computeOutCtx(c, t)
+			okContext = true
+		}
+
+		t = e.template("append:" + name)
+		if t != nil {
+			retContext = e.computeOutCtx(c, t)
+			for i := 2; i <= t.CountDefine; i++ {
+				t = e.template("append:" + name + ":" + strconv.Itoa(i))
+				if t != nil {
+					retContext = e.computeOutCtx(c, t)
+				}
+			}
+			okContext = true
+		}
+
+		if okContext {
+			return retContext, dname
+		}
+	}
 	if t == nil {
 		// Two cases: The template exists but is empty, or has never been mentioned at
 		// all. Distinguish the cases in the error messages.

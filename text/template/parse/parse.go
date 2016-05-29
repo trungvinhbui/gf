@@ -330,7 +330,7 @@ func (t *Tree) parse(treeSet map[string]*Tree) (next Node) {
 // installs the definition in the treeSet map.  The "define" keyword has already
 // been scanned.
 func (t *Tree) parseDefinition(treeSet map[string]*Tree) {
-	const context = "define clause"
+	var context = "define clause"
 	name := t.expectOneOf(itemString, itemRawString, context)
 	var err error
 	t.Name, err = strconv.Unquote(name.val)
@@ -341,6 +341,13 @@ func (t *Tree) parseDefinition(treeSet map[string]*Tree) {
 
 	if t.typ != itemDefine {
 		t.Name = t.Type + ":" + t.Name
+		if t.typ == itemFill {
+			context = "fill clause"
+		} else if t.typ == itemAppend {
+			context = "append clause"
+		} else if t.typ == itemPrepend {
+			context = "prepend clause"
+		}
 	}
 
 	t.expect(itemRightDelim, context)
