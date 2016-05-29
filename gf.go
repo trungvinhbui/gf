@@ -195,6 +195,7 @@ func Run() {
 			log.Println("Https server start at " + cfAddrHttps)
 
 			if cfEnableHttp2 != 0 {
+				http2.VerboseLogs = false
 				http2.ConfigureServer(serverHttps, nil)
 			}
 
@@ -334,7 +335,6 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if vars, matched := ext.VarMatch(pf.Pattern, path); matched {
-			context.RouteVars = vars
 			/*-----------------------------*/
 			if context == nil {
 				context = createContext(w, r)
@@ -342,6 +342,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					defer context.DB.Close()
 				}
 			}
+			context.RouteVars = vars
 			if !csrfProtectHTTP(context) {
 				return
 			}
