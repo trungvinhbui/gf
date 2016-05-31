@@ -460,7 +460,7 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 		session, err = mSessionStore.New(r, SERVER_SESSION_ID)
 	}
 
-	r.ParseForm()
+	r.ParseMultipartForm(MAX_MULTIPART_MEMORY)
 
 	context := Context{
 		w:              w,

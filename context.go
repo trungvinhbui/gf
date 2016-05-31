@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const MAX_MULTIPART_MEMORY = 1024 * 1024
+const MAX_MULTIPART_MEMORY = 1024 * 1024 * 32
 
 type Context struct {
 	w              http.ResponseWriter
