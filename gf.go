@@ -286,6 +286,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			path = path[len(mStaticWebPath):]
 			staticFile, err := filepath.Abs(mStaticDir + path)
 			if err == nil && strings.HasPrefix(staticFile, mStaticDir) && ext.FileExists(staticFile) {
+				w.Header().Add("Cache-Control", "max-age=0, must-revalidate")
 				if mEnableGzip == 1 {
 					fsgzip.ServeFile(w, r, staticFile)
 				} else {
