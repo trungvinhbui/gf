@@ -28,6 +28,7 @@ type Context struct {
 	ViewBases      []string
 	View           string
 	ViewData       map[string]interface{}
+	JsonResponse   interface{}
 	UrlPath        string
 	Method         string
 	IsGetMethod    bool

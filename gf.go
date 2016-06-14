@@ -2,10 +2,12 @@ package gf
 
 import (
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/csrf"
 	"github.com/goframework/gf/ext"
+	"github.com/goframework/gf/exterror"
 	"github.com/goframework/gf/fsgzip"
 	"github.com/goframework/gf/html/template"
 	"github.com/goframework/gf/sessions"
@@ -39,6 +41,7 @@ const DEFAULT_FAVICON_PATH = "/favicon.ico"
 
 const DEFAULT_SERVER_ENABLE_GZIP = 1
 const DEFAULT_SERVER_FORCE_HTTPS = 0
+const DEFAULT_SERVER_ENABLE_CSRF_PROTECT = 1
 
 const DEFAULT_SERVER_ENABLE_HTTP = 1
 const DEFAULT_SERVER_ENABLE_HTTPS = 0
@@ -104,6 +107,7 @@ func Run() {
 
 	mEnableGzip = mCfg.Int("Server.EnableGzip", DEFAULT_SERVER_ENABLE_GZIP)
 	mForeHttps = mCfg.Int("Server.ForceHttps", DEFAULT_SERVER_FORCE_HTTPS)
+	cfEnableCsrfProtect := mCfg.Int("Server.EnableCsrfProtect", DEFAULT_SERVER_ENABLE_CSRF_PROTECT)
 
 	cfDatabaseDriver := mCfg.Str("Database.Driver", "")
 	cfDatabaseHost := mCfg.Str("Database.Host", "")
@@ -160,7 +164,10 @@ func Run() {
 
 	mSessionStore = sessions.NewFilesystemStore(mSessionStoreDir, []byte(cfCookieSecret))
 	mSessionStore.MaxAge(0) // session only
-	mCsrfProtection = csrf.InitCsrf([]byte(cfCookieSecret), csrf.Secure(false))
+
+	if cfEnableCsrfProtect != 0 {
+		mCsrfProtection = csrf.InitCsrf([]byte(cfCookieSecret), csrf.Secure(false))
+	}
 
 	serverHttp := &http.Server{
 		Addr:           cfAddr,
@@ -281,6 +288,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if path == DEFAULT_FAVICON_PATH {
 		path = mStaticWebPath + DEFAULT_FAVICON_PATH[1:]
 	}
+
 	if strings.HasPrefix(path, mStaticWebPath) {
 		if r.Method == METHOD_GET {
 			path = path[len(mStaticWebPath):]
@@ -385,6 +393,18 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func renderView(context *Context) {
+
+	if context.JsonResponse != nil {
+		context.w.Header().Add("Content-Type", "application/json")
+		jsonBytes, err := json.Marshal(context.JsonResponse)
+		if err != nil {
+			log.Println(exterror.WrapExtError(err))
+			context.w.Write([]byte("{}"))
+		}
+
+		context.w.Write(jsonBytes)
+	}
+
 	var viewFiles []string
 	if context.ViewBases != nil {
 		viewFiles = make([]string, len(context.ViewBases))
@@ -515,6 +535,10 @@ func getHost(r *http.Request) string {
 // Requests that do not provide a matching token are served with a HTTP 403
 // 'Forbidden' error response.
 func csrfProtectHTTP(ctx *Context) bool {
+	// No CSRF protect
+	if mCsrfProtection == nil {
+		return true
+	}
 
 	if v, _ := ctx.GetBool(_IS_CSRF_PROTECTED); v {
 		return true
