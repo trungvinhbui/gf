@@ -118,6 +118,19 @@ func (ctx *Context) NewSession() {
 	}
 }
 
+func (ctx *Context) SetSessionFlash(key string, value interface{}) {
+	ctx.Session.AddFlash(value, key)
+}
+
+func (ctx *Context) GetSessionFlash(key string) interface{} {
+	vars := ctx.Session.Flashes(key)
+	if len(vars) > 0 {
+		return vars[0]
+	}
+	return nil
+}
+
+
 func (ctx *Context) GetResponseWriter() http.ResponseWriter {
 	return ctx.w
 }
