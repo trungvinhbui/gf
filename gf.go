@@ -395,7 +395,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func renderView(context *Context) {
 
 	if context.JsonResponse != nil {
-		context.w.Header().Add("Content-Type", "application/json")
+		context.w.Header().Add("Content-Type", "application/json; charset=utf-8")
 		jsonBytes, err := json.Marshal(context.JsonResponse)
 		if err != nil {
 			log.Println(exterror.WrapExtError(err))
@@ -403,6 +403,7 @@ func renderView(context *Context) {
 		}
 
 		context.w.Write(jsonBytes)
+		return
 	}
 
 	var viewFiles []string
