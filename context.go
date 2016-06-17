@@ -7,6 +7,7 @@ import (
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/sessions"
 	"io"
+	"path/filepath"
 	"net/http"
 	"time"
 )
@@ -37,7 +38,7 @@ type Context struct {
 	Form           Form
 	Host           string
 
-	DB *sql.DB
+	DB             *sql.DB
 }
 
 func (ctx *Context) Redirect(path string) {
@@ -130,7 +131,6 @@ func (ctx *Context) GetSessionFlash(key string) interface{} {
 	return nil
 }
 
-
 func (ctx *Context) GetResponseWriter() http.ResponseWriter {
 	return ctx.w
 }
@@ -166,7 +166,7 @@ func (ctx *Context) SetPersistentCookie(key string, value string, duration time.
 
 // Unset cookie
 func (ctx *Context) DeleteCookie(key string) {
-	ctx.AddResponseHeader("Set-Cookie", key+"=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")
+	ctx.AddResponseHeader("Set-Cookie", key + "=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")
 }
 
 func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, error) {
@@ -186,4 +186,20 @@ func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, erro
 	}
 
 	return fileName, file, nil
+}
+
+func (ctx *Context) ServeStaticFile(filePath string, isAttachment bool) {
+	ctx.isSelfResponse = true
+	if ext.FileExists(filePath) {
+		fileName := filepath.Base(filePath)
+		if isAttachment {
+			ctx.w.Header().Add("Content-Disposition", "attachment; filename="+fileName)
+		} else {
+			ctx.w.Header().Add("Content-Disposition", "inline; filename="+fileName)
+		}
+		http.ServeFile(ctx.w, ctx.r, filePath)
+	} else {
+		ctx.w.WriteHeader(http.StatusNotFound)
+		ctx.w.Write([]byte("404 - Not found"))
+	}
 }
