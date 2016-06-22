@@ -418,7 +418,7 @@ func renderView(context *Context) {
 		viewFiles = append(viewFiles, viewFile)
 	}
 	if len(viewFiles) > 0 {
-		tem, err := template.ParseFiles(viewFiles...)
+		tem, err := ParseTemplateFiles(viewFiles...)
 		if err != nil {
 			log.Println("Error while parsing template:\n" + err.Error())
 			http.Error(context.w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
