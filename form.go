@@ -65,6 +65,12 @@ func (this *Form) StringNoEscape(key string) string {
 	return ""
 }
 
+func (this *Form) Bool(key string) bool {
+	value := this.StringNoEscape(key)
+	boolValue, _ := strconv.ParseBool(value)
+	return boolValue
+}
+
 func (this *Form) Int(key string) int {
 	value := this.StringNoEscape(key)
 	intValue, _ := strconv.ParseInt(value, 10, 64)
