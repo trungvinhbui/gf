@@ -2,6 +2,7 @@ package gf
 
 import (
 	"database/sql"
+	"encoding/gob"
 	"fmt"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/ext"
@@ -9,10 +10,13 @@ import (
 	"io"
 	"path/filepath"
 	"net/http"
+	"reflect"
 	"time"
 )
 
 const MAX_MULTIPART_MEMORY = 1024 * 1024 * 32
+
+var mGobRegisted = make(map[string]bool)
 
 type Context struct {
 	w              http.ResponseWriter
@@ -120,6 +124,14 @@ func (ctx *Context) NewSession() {
 }
 
 func (ctx *Context) SetSessionFlash(key string, value interface{}) {
+	varType := reflect.TypeOf(value).String()
+	if !mGobRegisted[varType] {
+		if !mGobRegisted[varType] {
+			gob.Register(value)
+			mGobRegisted[varType] = true
+		}
+	}
+
 	ctx.Session.AddFlash(value, key)
 }
 
