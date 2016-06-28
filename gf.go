@@ -48,6 +48,8 @@ const DEFAULT_SERVER_ENABLE_HTTPS = 0
 const DEFAULT_SERVER_ENABLE_HTTP2 = 1
 
 const SERVER_SESSION_ID string = "session_id"
+const SERVER_SESSION_MAX_LENGTH = 131072 //128KB
+const SERVER_SESSION_KEEP_DAY = 7 // 1 week
 
 const METHOD_GET string = "GET"
 const METHOD_POST string = "POST"
@@ -163,6 +165,7 @@ func Run() {
 	}
 
 	mSessionStore = sessions.NewFilesystemStore(mSessionStoreDir, []byte(cfCookieSecret))
+	mSessionStore.MaxLength(SERVER_SESSION_MAX_LENGTH)
 	mSessionStore.MaxAge(0) // session only
 
 	if cfEnableCsrfProtect != 0 {
@@ -452,11 +455,11 @@ func startDeleteSessionStoreJob() {
 			log.Println("Start delete session store !")
 
 			files, err := ioutil.ReadDir(mSessionStoreDir)
-			monthAgo := time.Now().AddDate(0, -1, 0)
+			dayAgo := time.Now().AddDate(0, 0, -SERVER_SESSION_KEEP_DAY)
 			count := 0
 			if err == nil {
 				for _, f := range files {
-					if f.ModTime().Before(monthAgo) {
+					if f.ModTime().Before(dayAgo) {
 						if os.Remove(mSessionStoreDir+"/"+f.Name()) == nil {
 							count++
 						}
