@@ -2,12 +2,12 @@ package gf
 
 import (
 	"database/sql"
-	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/goframework/gf/exterror"
 	"log"
-	"reflect"
 	"strconv"
+	"reflect"
+	"fmt"
 )
 
 const SQL_TAG = "sql"
@@ -102,6 +102,10 @@ func SqlScanStruct(rows *sql.Rows, outputStruct interface{}) error {
 		} else if fV, ok := valueMap[v.Type().Field(i).Name]; ok {
 			fieldValue = fV
 		} else {
+			continue
+		}
+
+		if fieldValue == nil {
 			continue
 		}
 
