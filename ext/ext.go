@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"path/filepath"
 )
 
 type VarType struct {
@@ -155,13 +156,7 @@ func FolderExists(name string) bool {
 }
 
 func FileNameFromPath(filePath string) string {
-	lastSlash := strings.LastIndex(filePath, "/")
-
-	if lastSlash > 0 {
-		return filePath[lastSlash+1:]
-	}
-
-	return filePath
+	return  filepath.Base(filePath)
 }
 
 func ArrayContains(s []string, e string) bool {
