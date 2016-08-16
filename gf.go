@@ -271,6 +271,8 @@ func Handle404(f func(*Context)) {
 type gfHandler struct{}
 
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	r.Close = true
+	
 	path := r.URL.EscapedPath()
 
 	if mForeHttps != 0 {
