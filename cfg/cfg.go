@@ -11,6 +11,7 @@ import (
 
 type Cfg struct {
 	Data map[string]string
+	ArrData map[string][]string
 }
 
 func (this *Cfg) Str(key string, defaultValue string) string {
@@ -29,6 +30,13 @@ func (this *Cfg) Int(key string, defaultValue int) int {
 	return defaultValue
 }
 
+func (this *Cfg) List(key string) []string {
+	if v, ok := this.ArrData[key]; ok {
+		return v
+	}
+	return nil
+}
+
 func (this *Cfg) Load(file string) {
 
 	// Open an input file, exit on error.
@@ -45,6 +53,8 @@ func (this *Cfg) Load(file string) {
 	scanner := bufio.NewScanner(inputFile)
 
 	this.Data = map[string]string{}
+	this.ArrData = map[string][]string{}
+
 	// scanner.Scan() advances to the next token returning false if an error was encountered
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -56,7 +66,13 @@ func (this *Cfg) Load(file string) {
 			if key[0] != '#' {
 				value := strings.Trim(line[eqIndex+1:], " 　")
 				value = ext.ReplaceEnv(value)
-				this.Data[key] = value
+
+				if strings.HasSuffix(key, "[]") {
+					key = strings.TrimRight(key, "[]")
+					this.ArrData[key] = append(this.ArrData[key], value)
+				} else {
+					this.Data[key] = value
+				}
 			}
 		}
 	}
