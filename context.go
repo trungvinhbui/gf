@@ -1,20 +1,24 @@
 package gf
 
 import (
+	"crypto/md5"
 	"database/sql"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/sessions"
 	"io"
+	"os"
 	"path/filepath"
 	"net/http"
+	"net"
 	"reflect"
 	"time"
 )
 
-const MAX_MULTIPART_MEMORY = 1024 * 1024 * 32
+const MAX_MULTIPART_MEMORY = 1024 * 1024 * 5
 
 var mGobRegisted = make(map[string]bool)
 
@@ -42,6 +46,7 @@ type Context struct {
 	Form           Form
 	Host           string
 
+	TemplateFunc   map[string]interface{}
 	DB             *sql.DB
 }
 
@@ -117,6 +122,7 @@ func (ctx *Context) NewSession() {
 
 	var err error
 	ctx.Session, err = mSessionStore.New(ctx.r, SERVER_SESSION_ID)
+	ctx.Session.ID = sessions.GenerateSessionID()
 	if err != nil {
 		http.Error(ctx.w, err.Error(), http.StatusInternalServerError)
 		return
@@ -190,13 +196,6 @@ func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, erro
 	}
 	fileName := handler.Filename
 
-	if file == nil {
-		file, err = handler.Open()
-		if err != nil {
-			return "", nil, err
-		}
-	}
-
 	return fileName, file, nil
 }
 
@@ -214,4 +213,123 @@ func (ctx *Context) ServeStaticFile(filePath string, isAttachment bool) {
 		ctx.w.WriteHeader(http.StatusNotFound)
 		ctx.w.Write([]byte("404 - Not found"))
 	}
+}
+
+type cacheObject struct {
+	ExpiredAt time.Time
+	Data interface{}
+}
+
+func (ctx *Context) LoadCache(key string, object interface{}) error {
+	cacheDir := ctx.Config.Str("Server.CacheStoreDir", "./cache")
+	cacheDir, err := filepath.Abs(cacheDir)
+	if err != nil {
+		return err
+	}
+
+	path := filepath.Join(cacheDir, fmt.Sprintf("%x", md5.Sum([]byte(key))))
+	pathExpireTime := path + "_expire_time"
+
+	fileExpireTime, err :=  os.Open(pathExpireTime)
+	if err != nil {
+		return err
+	}
+	var extTimeUnix int64
+	fmt.Fscan(fileExpireTime, &extTimeUnix)
+	fileExpireTime.Close()
+
+	extTime := time.Unix(extTimeUnix, 0)
+
+	if extTime.Before(time.Now()) {
+		os.Remove(pathExpireTime)
+		os.Remove(path)
+
+		return errors.New("Cache expired")
+	}
+
+
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	decoder := gob.NewDecoder(file)
+	err = decoder.Decode(object)
+	file.Close()
+
+	//if err == nil {
+	//	if cacheObj.ExpiredAt.Before(time.Now()) {
+	//		object = nil
+	//	}
+	//}
+
+	return err
+}
+
+func (ctx *Context) SaveCache(key string, object interface{}, secondTimeout int) error {
+	cacheDir := ctx.Config.Str("Server.CacheStoreDir", DEFAULT_CACHE_STORE_DIR)
+	cacheDir, err := filepath.Abs(cacheDir)
+	if err != nil {
+		return err
+	}
+
+	if !ext.FolderExists(cacheDir) {
+		os.MkdirAll(cacheDir, os.ModePerm)
+	}
+
+	path := filepath.Join(cacheDir, fmt.Sprintf("%x", md5.Sum([]byte(key))))
+	pathExpireTime := path + "_expire_time"
+
+	file, err := os.Create(path)
+	if err == nil {
+		encoder := gob.NewEncoder(file)
+		encoder.Encode(object)
+	}
+	file.Close()
+
+
+	fileExpireTime, err := os.Create(pathExpireTime)
+	if err == nil {
+		fmt.Fprint(fileExpireTime, time.Now().Add(time.Duration(secondTimeout) * time.Second).Unix())
+	}
+	fileExpireTime.Close()
+
+	return err
+}
+
+func (ctx *Context) GetRequestIP() string {
+	ip, _, err := net.SplitHostPort(ctx.r.RemoteAddr)
+	if err != nil {
+		userIP := net.ParseIP(ip)
+		if userIP != nil {
+			ip = userIP.String()
+		}
+	}
+
+	return ip
+}
+
+func (ctx *Context) GetRequestForwardedIP() string {
+
+	ip := ctx.r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = ctx.r.Header.Get("x-forwarded-for")
+	}
+	if ip == "" {
+		ip = ctx.r.Header.Get("X-FORWARDED-FOR")
+	}
+
+	return ip
+}
+
+func (ctx *Context) GetBrowserAgent() string {
+	agent := ctx.r.Header.Get("User-Agent")
+	if agent == "" {
+		agent = ctx.r.Header.Get("user-agent")
+	}
+	if agent == "" {
+		agent = ctx.r.Header.Get("USER-AGENT")
+	}
+
+	return agent
 }

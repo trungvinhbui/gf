@@ -22,6 +22,7 @@ import (
 	"time"
 )
 
+const DEFAULT_HTTP_PORT  = ":80"
 const DEFAULT_HTTPS_PORT = ":443"
 
 const DEFAULT_SERVER_CONFIG_FILE string = "./server.cfg"
@@ -37,6 +38,7 @@ const DEFAULT_SERVER_WRITE_TIMEOUT = 120
 const DEFAULT_SERVER_MAX_HEADER_BYTES = 65536
 const DEFAULT_COOKIE_SECRET string = "COOKIE_SECRET"
 const DEFAULT_SESSION_STORE_DIR = "./session_store"
+const DEFAULT_CACHE_STORE_DIR = "./cache_store"
 const DEFAULT_FAVICON_PATH = "/favicon.ico"
 
 const DEFAULT_SERVER_ENABLE_GZIP = 1
@@ -60,8 +62,9 @@ var mStaticDir string
 var mViewDir string
 var mStaticWebPath string
 var mSessionStoreDir string
+var mCacheStoreDir string
 var mEnableGzip = 1
-var mForeHttps = 0
+var mForceHttps = 0
 
 var mServerHttpAddr string
 var mServerHttpsAddr string
@@ -97,6 +100,7 @@ func Run() {
 	cfMaxHeaderBytes := mCfg.Int("Server.MaxHeaderBytes", DEFAULT_SERVER_MAX_HEADER_BYTES)
 	cfCookieSecret := mCfg.Str("Server.CookieSecret", DEFAULT_COOKIE_SECRET)
 	cfSessionStoreDir := mCfg.Str("Server.SessionStoreDir", DEFAULT_SESSION_STORE_DIR)
+	cfCacheStoreDir := mCfg.Str("Server.CacheStoreDir", DEFAULT_CACHE_STORE_DIR)
 	cfEnableHttp := mCfg.Int("Server.EnableHttp", DEFAULT_SERVER_ENABLE_HTTP)
 	cfEnableHttps := mCfg.Int("Server.EnableHttps", DEFAULT_SERVER_ENABLE_HTTPS)
 	cfEnableHttp2 := mCfg.Int("Server.EnableHttp2", DEFAULT_SERVER_ENABLE_HTTP2)
@@ -108,7 +112,7 @@ func Run() {
 	mServerHttpsAddr = cfAddrHttps
 
 	mEnableGzip = mCfg.Int("Server.EnableGzip", DEFAULT_SERVER_ENABLE_GZIP)
-	mForeHttps = mCfg.Int("Server.ForceHttps", DEFAULT_SERVER_FORCE_HTTPS)
+	mForceHttps = mCfg.Int("Server.ForceHttps", DEFAULT_SERVER_FORCE_HTTPS)
 	cfEnableCsrfProtect := mCfg.Int("Server.EnableCsrfProtect", DEFAULT_SERVER_ENABLE_CSRF_PROTECT)
 
 	cfDatabaseDriver := mCfg.Str("Database.Driver", "")
@@ -159,6 +163,12 @@ func Run() {
 		log.Fatal(err)
 	}
 	os.MkdirAll(mSessionStoreDir, os.ModePerm)
+
+	mCacheStoreDir, err = filepath.Abs(cfCacheStoreDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	os.MkdirAll(mCacheStoreDir, os.ModePerm)
 
 	if err = mDBGen.Check(); err != nil {
 		log.Fatal(err)
@@ -216,6 +226,7 @@ func Run() {
 	}
 
 	startDeleteSessionStoreJob()
+	startDeleteCacheStoreJob()
 
 	select {
 	case err := <-errChanHttp:
@@ -275,8 +286,10 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	
 	path := r.URL.EscapedPath()
 
-	if mForeHttps != 0 {
-		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+	if mForceHttps != 0 {
+		if mServerHttpAddr == DEFAULT_HTTP_PORT && mServerHttpsAddr == DEFAULT_HTTPS_PORT {
+			w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		}
 
 		if r.TLS == nil {
 			host := getHost(r)
@@ -324,15 +337,15 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if context.DB != nil {
 					defer context.DB.Close()
 				}
-			}
-
-			if !csrfProtectHTTP(context) {
-				return
+				if !csrfProtectHTTP(context) {
+					return
+				}
 			}
 
 			pf.HandleFunc(context)
 
 			if context.RedirectStatus != 0 {
+				context.Session.Save(r, w)
 				http.Redirect(w, r, context.RedirectPath, context.RedirectStatus)
 				return
 			}
@@ -355,11 +368,12 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if context.DB != nil {
 					defer context.DB.Close()
 				}
+				if !csrfProtectHTTP(context) {
+					return
+				}
 			}
 			context.RouteVars = vars
-			if !csrfProtectHTTP(context) {
-				return
-			}
+
 			pf.HandleFunc(context)
 			context.Session.Save(r, w)
 			/*-----------------------------*/
@@ -386,10 +400,11 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if context.DB != nil {
 				defer context.DB.Close()
 			}
+			if !csrfProtectHTTP(context) {
+				return
+			}
 		}
-		if !csrfProtectHTTP(context) {
-			return
-		}
+
 		mHandle404(context)
 		renderView(context)
 	} else {
@@ -423,7 +438,7 @@ func renderView(context *Context) {
 		viewFiles = append(viewFiles, viewFile)
 	}
 	if len(viewFiles) > 0 {
-		tem, err := ParseTemplateFiles(viewFiles...)
+		tem, err := ParseTemplateFiles(context.TemplateFunc, viewFiles...)
 		if err != nil {
 			log.Println("Error while parsing template:\n" + err.Error())
 			http.Error(context.w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
@@ -450,7 +465,6 @@ func renderView(context *Context) {
 		}
 	}
 }
-
 func startDeleteSessionStoreJob() {
 	go func() {
 		for true {
@@ -475,6 +489,66 @@ func startDeleteSessionStoreJob() {
 
 			log.Println("End delete session store !")
 			time.Sleep(24 * time.Hour)
+		}
+	}()
+}
+
+func cleanUpCacheDir(dir string) (countFile int, empty bool) {
+	files, err := ioutil.ReadDir(dir)
+	now := time.Now()
+	count := 0
+	if err == nil {
+		for _, f := range files {
+			if f.IsDir() {
+				countSubFiles, empty := cleanUpCacheDir(mCacheStoreDir+"/"+f.Name())
+				count += countSubFiles
+				if empty && f.ModTime().Before(time.Now().AddDate(0, 0, -1)) {
+					os.Remove(mCacheStoreDir+"/"+f.Name())
+				}
+			} else 	if strings.HasSuffix(f.Name(), "_expire_time") {
+				file, err := os.Open(mCacheStoreDir+"/"+f.Name())
+				if err == nil {
+					var expTimeUnix int64
+					fmt.Fscan(file, &expTimeUnix)
+					file.Close()
+					timeExp := time.Unix(expTimeUnix, 0)
+					if timeExp.Before(now) {
+						if os.Remove(mCacheStoreDir+"/"+f.Name()) == nil {
+							count++
+						}
+						if os.Remove(mCacheStoreDir+"/"+ strings.Replace(f.Name(),"_expire_time","", 1)) == nil {
+							count++
+						}
+					}
+				}
+			} else if f.ModTime().Before(time.Now().AddDate(0, 0, -3)) {
+				if os.Remove(mCacheStoreDir+"/"+f.Name()) == nil {
+					count++
+				}
+			}
+		}
+	}
+
+	remainFiles, _ := ioutil.ReadDir(mCacheStoreDir)
+	empty = (len(remainFiles) == 0)
+
+	return count, empty
+}
+
+func startDeleteCacheStoreJob() {
+
+	go func() {
+		for true {
+			log.Println("Start delete cache store !")
+
+			count, _ := cleanUpCacheDir(mCacheStoreDir)
+
+			if count > 0 {
+				log.Printf("Deleted %v cache files\r\n", count)
+			}
+
+			log.Println("End delete cache store !")
+			time.Sleep(time.Hour)
 		}
 	}()
 }
@@ -504,6 +578,7 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 		IsUsingTSL:     r.TLS != nil,
 		Host:           host,
 		Form:           Form{r.Form},
+		TemplateFunc:   map[string]interface{}{},
 	}
 
 	if mDBGen.IsEnable {

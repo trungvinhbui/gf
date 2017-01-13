@@ -7,12 +7,25 @@ import (
 	"path/filepath"
 )
 
-var funcMap = template.FuncMap{
+var _FUNC_MAP = template.FuncMap{
 	"json": tmplJson,
 }
 
-func ParseTemplateFiles(filename... string) (*template.Template, error) {
+func ParseTemplateFiles(templateFunc map[string]interface{}, filename... string) (*template.Template, error) {
 	if len(filename) > 0 {
+		var funcMap template.FuncMap
+		if len(templateFunc) > 0 {
+			funcMap = template.FuncMap{}
+			for name, fc := range _FUNC_MAP {
+				funcMap[name] = fc
+			}
+			for name, fc := range templateFunc {
+				funcMap[name] = fc
+			}
+		} else {
+			funcMap = _FUNC_MAP
+		}
+
 		name := filepath.Base(filename[0])
 		return template.New(name).Funcs(funcMap).ParseFiles(filename...)
 	}

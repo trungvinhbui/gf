@@ -204,6 +204,12 @@ func (s *FilesystemStore) New(r *http.Request, name string) (*Session, error) {
 	return session, err
 }
 
+func GenerateSessionID() string {
+	return strings.TrimRight(
+		base32.StdEncoding.EncodeToString(
+			securecookie.GenerateRandomKey(32)), "=");
+}
+
 // Save adds a single session to the response.
 func (s *FilesystemStore) Save(r *http.Request, w http.ResponseWriter,
 	session *Session) error {
