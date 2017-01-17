@@ -499,37 +499,38 @@ func cleanUpCacheDir(dir string) (countFile int, empty bool) {
 	count := 0
 	if err == nil {
 		for _, f := range files {
+			subPath := filepath.Join(dir, f.Name())
 			if f.IsDir() {
-				countSubFiles, empty := cleanUpCacheDir(mCacheStoreDir+"/"+f.Name())
+				countSubFiles, empty := cleanUpCacheDir(subPath)
 				count += countSubFiles
 				if empty && f.ModTime().Before(time.Now().AddDate(0, 0, -1)) {
-					os.Remove(mCacheStoreDir+"/"+f.Name())
+					os.Remove(subPath)
 				}
-			} else 	if strings.HasSuffix(f.Name(), "_expire_time") {
-				file, err := os.Open(mCacheStoreDir+"/"+f.Name())
+			} else 	if strings.HasSuffix(subPath, "_expire_time") {
+				file, err := os.Open(subPath)
 				if err == nil {
 					var expTimeUnix int64
 					fmt.Fscan(file, &expTimeUnix)
 					file.Close()
 					timeExp := time.Unix(expTimeUnix, 0)
 					if timeExp.Before(now) {
-						if os.Remove(mCacheStoreDir+"/"+f.Name()) == nil {
+						if os.Remove(subPath) == nil {
 							count++
 						}
-						if os.Remove(mCacheStoreDir+"/"+ strings.Replace(f.Name(),"_expire_time","", 1)) == nil {
+						if os.Remove(strings.Replace(subPath,"_expire_time","", 1)) == nil {
 							count++
 						}
 					}
 				}
 			} else if f.ModTime().Before(time.Now().AddDate(0, 0, -3)) {
-				if os.Remove(mCacheStoreDir+"/"+f.Name()) == nil {
+				if os.Remove(subPath) == nil {
 					count++
 				}
 			}
 		}
 	}
 
-	remainFiles, _ := ioutil.ReadDir(mCacheStoreDir)
+	remainFiles, _ := ioutil.ReadDir(dir)
 	empty = (len(remainFiles) == 0)
 
 	return count, empty
