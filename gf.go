@@ -287,10 +287,6 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.EscapedPath()
 
 	if mForceHttps != 0 {
-		if mServerHttpAddr == DEFAULT_HTTP_PORT && mServerHttpsAddr == DEFAULT_HTTPS_PORT {
-			w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-		}
-
 		if r.TLS == nil {
 			host := getHost(r)
 			httpsUrl := "https://" + host
@@ -522,7 +518,7 @@ func cleanUpCacheDir(dir string) (countFile int, empty bool) {
 						}
 					}
 				}
-			} else if f.ModTime().Before(time.Now().AddDate(0, 0, -3)) {
+			} else if f.ModTime().Before(time.Now().AddDate(0, 0, -1)) {
 				if os.Remove(subPath) == nil {
 					count++
 				}
