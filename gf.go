@@ -39,7 +39,6 @@ const DEFAULT_SERVER_MAX_HEADER_BYTES = 65536
 const DEFAULT_COOKIE_SECRET string = "COOKIE_SECRET"
 const DEFAULT_SESSION_STORE_DIR = "./session_store"
 const DEFAULT_CACHE_STORE_DIR = "./cache_store"
-const DEFAULT_FAVICON_PATH = "/favicon.ico"
 
 const DEFAULT_SERVER_ENABLE_GZIP = 1
 const DEFAULT_SERVER_FORCE_HTTPS = 0
@@ -299,8 +298,11 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if path == DEFAULT_FAVICON_PATH {
-		path = mStaticWebPath + DEFAULT_FAVICON_PATH[1:]
+	//Root static files (robots.txt, favicon.icon, ...)
+	if strings.LastIndex(path, "/") == 0 &&
+		strings.LastIndex(path,".") > 0 &&
+		ext.FileExists(mStaticDir + path) {
+		path = mStaticWebPath + path[1:]
 	}
 
 	if strings.HasPrefix(path, mStaticWebPath) {
@@ -325,14 +327,18 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var context *Context = nil
+	defer func() {
+		if context != nil {
+			if context.DB != nil {
+				context.DB.Close()
+			}
+		}
+	}()
 
 	for _, pf := range mListFilter {
 		if ext.WildMatch(pf.Pattern, path) {
 			if context == nil {
 				context = createContext(w, r)
-				if context.DB != nil {
-					defer context.DB.Close()
-				}
 				if !csrfProtectHTTP(context) {
 					return
 				}
@@ -343,6 +349,10 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if context.RedirectStatus != 0 {
 				context.Session.Save(r, w)
 				http.Redirect(w, r, context.RedirectPath, context.RedirectStatus)
+				return
+			}
+
+			if context.isSelfResponse {
 				return
 			}
 
@@ -361,9 +371,6 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			/*-----------------------------*/
 			if context == nil {
 				context = createContext(w, r)
-				if context.DB != nil {
-					defer context.DB.Close()
-				}
 				if !csrfProtectHTTP(context) {
 					return
 				}
@@ -393,9 +400,6 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if mHandle404 != nil {
 		if context == nil {
 			context = createContext(w, r)
-			if context.DB != nil {
-				defer context.DB.Close()
-			}
 			if !csrfProtectHTTP(context) {
 				return
 			}

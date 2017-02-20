@@ -149,9 +149,9 @@ func (ctx *Context) GetSessionFlash(key string) interface{} {
 	return nil
 }
 
-func (ctx *Context) GetResponseWriter() http.ResponseWriter {
-	return ctx.w
-}
+//func (ctx *Context) GetResponseWriter() http.ResponseWriter {
+//	return ctx.w
+//}
 
 func (ctx *Context) AddResponseHeader(key string, value string) {
 	ctx.w.Header().Add(key, value)
