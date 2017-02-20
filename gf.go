@@ -300,7 +300,8 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	//Root static files (robots.txt, favicon.icon, ...)
 	if strings.LastIndex(path, "/") == 0 &&
-		strings.LastIndex(path,".") > 0 &&
+		strings.LastIndex(path, "\\") < 0 &&
+		strings.LastIndex(path, ".") > 0 &&
 		ext.FileExists(mStaticDir + path) {
 		path = mStaticWebPath + path[1:]
 	}
