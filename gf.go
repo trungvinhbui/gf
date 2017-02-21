@@ -2,6 +2,7 @@ package gf
 
 import (
 	"compress/gzip"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/goframework/gf/cfg"
@@ -216,6 +217,8 @@ func Run() {
 			if cfEnableHttp2 != 0 {
 				http2.VerboseLogs = false
 				http2.ConfigureServer(serverHttps, nil)
+			} else {
+				serverHttps.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){}
 			}
 
 			err := serverHttps.ListenAndServeTLS(cfCertFile, cfKeyFile)
