@@ -10,7 +10,7 @@ var filePathSpliter string = ""
 
 type ExtError struct {
 	error
-	errorString string
+	traceStack []string
 }
 
 func SetFilePathSpliter(spliter string) {
@@ -18,7 +18,12 @@ func SetFilePathSpliter(spliter string) {
 }
 
 func (this ExtError) Error() string {
-	return this.errorString
+	es := fmt.Sprintf("[ERROR] %v \r\n\t%v", this.error, strings.Join(this.traceStack, "\r\n\t"))
+	return es
+}
+
+func TraceError(err error) error  {
+	return WrapExtError(err)
 }
 
 func WrapExtError(err error) error {
@@ -26,19 +31,25 @@ func WrapExtError(err error) error {
 		return nil
 	}
 
+	var ee ExtError
+
 	switch err.(type) {
 	case ExtError:
-		return err
+		ee = err.(ExtError)
 	default:
-		pc, fn, line, _ := runtime.Caller(1)
-		if filePathSpliter != "" {
-			fns := strings.SplitN(fn, filePathSpliter, 2)
-			if len(fns) > 1 {
-				fn = fns[1]
-			}
-		}
-		info := fmt.Sprintf("[ERROR] %v \r\nAt %s [%s:%d]", err, runtime.FuncForPC(pc).Name(), fn, line)
-		extError := ExtError{err, info}
-		return extError
+		ee = ExtError{err, []string{}}
 	}
+
+
+	pc, fn, line, _ := runtime.Caller(1)
+	if filePathSpliter != "" {
+		fns := strings.SplitN(fn, filePathSpliter, 2)
+		if len(fns) > 1 {
+			fn = fns[1]
+		}
+	}
+
+	ee.traceStack = append(ee.traceStack, fmt.Sprintf("[%s:%d]    %s", fn, line, runtime.FuncForPC(pc).Name()))
+
+	return ee
 }
