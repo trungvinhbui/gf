@@ -49,7 +49,12 @@ func WrapExtError(err error) error {
 		}
 	}
 
-	ee.traceStack = append(ee.traceStack, fmt.Sprintf("[%s:%d]    %s", fn, line, runtime.FuncForPC(pc).Name()))
+	funcName := func() string {
+		fnPart := strings.Split(runtime.FuncForPC(pc).Name(), "/")
+		return fnPart[len(fnPart) -1]
+	}()
+
+	ee.traceStack = append(ee.traceStack, fmt.Sprintf("[%s:%d]    %s", fn, line, funcName))
 
 	return ee
 }

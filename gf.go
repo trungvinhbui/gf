@@ -563,7 +563,7 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 
 	session, err := mSessionStore.Get(r, SERVER_SESSION_ID)
 	if err != nil {
-		session, err = mSessionStore.New(r, SERVER_SESSION_ID)
+		log.Println(err)
 	}
 
 	r.ParseMultipartForm(MAX_MULTIPART_MEMORY)

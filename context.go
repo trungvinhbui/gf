@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/ext"
+	"github.com/goframework/gf/securecookie"
 	"github.com/goframework/gf/sessions"
 	"io"
 	"os"
@@ -119,14 +120,8 @@ func (ctx *Context) ClearSession() {
 
 func (ctx *Context) NewSession() {
 	ctx.ClearSession()
-
-	var err error
-	ctx.Session, err = mSessionStore.New(ctx.r, SERVER_SESSION_ID)
-	ctx.Session.ID = sessions.GenerateSessionID()
-	if err != nil {
-		http.Error(ctx.w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	ctx.Session.ID = securecookie.NewID()
+	ctx.Session.IsNew = true
 }
 
 func (ctx *Context) SetSessionFlash(key string, value interface{}) {

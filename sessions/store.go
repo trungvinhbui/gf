@@ -5,14 +5,11 @@
 package sessions
 
 import (
-	"encoding/base32"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
-
 	"github.com/goframework/gf/securecookie"
 )
 
@@ -180,7 +177,13 @@ func (s *FilesystemStore) MaxLength(l int) {
 //
 // See CookieStore.Get().
 func (s *FilesystemStore) Get(r *http.Request, name string) (*Session, error) {
-	return GetRegistry(r).Get(s, name)
+	session, err := GetRegistry(r).Get(s, name)
+	if session != nil {
+		if session.ID == "" {
+			session.ID = securecookie.NewID()
+		}
+	}
+	return session, err
 }
 
 // New returns a session for the given name without adding it to the registry.
@@ -204,21 +207,11 @@ func (s *FilesystemStore) New(r *http.Request, name string) (*Session, error) {
 	return session, err
 }
 
-func GenerateSessionID() string {
-	return strings.TrimRight(
-		base32.StdEncoding.EncodeToString(
-			securecookie.GenerateRandomKey(32)), "=");
-}
-
 // Save adds a single session to the response.
 func (s *FilesystemStore) Save(r *http.Request, w http.ResponseWriter,
 	session *Session) error {
 	if session.ID == "" {
-		// Because the ID is used in the filename, encode it to
-		// use alphanumeric characters only.
-		session.ID = strings.TrimRight(
-			base32.StdEncoding.EncodeToString(
-				securecookie.GenerateRandomKey(32)), "=")
+		session.ID = securecookie.NewID()
 	}
 	if err := s.save(session); err != nil {
 		return err
@@ -248,12 +241,19 @@ func (s *FilesystemStore) MaxAge(age int) {
 
 // save writes encoded session.Values to a file.
 func (s *FilesystemStore) save(session *Session) error {
+	filename := filepath.Join(s.path, "session_"+session.ID)
+	_, err := os.Stat(filename)
+
+	if len(session.Values) == 0 && os.IsNotExist(err) {
+		return nil
+	}
+
 	encoded, err := securecookie.EncodeMulti(session.Name(), session.Values,
 		s.Codecs...)
 	if err != nil {
 		return err
 	}
-	filename := filepath.Join(s.path, "session_"+session.ID)
+
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 	return ioutil.WriteFile(filename, []byte(encoded), 0600)
@@ -262,6 +262,10 @@ func (s *FilesystemStore) save(session *Session) error {
 // load reads a file and decodes its content into session.Values.
 func (s *FilesystemStore) load(session *Session) error {
 	filename := filepath.Join(s.path, "session_"+session.ID)
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return nil
+	}
 	fileMutex.RLock()
 	defer fileMutex.RUnlock()
 	fdata, err := ioutil.ReadFile(filename)

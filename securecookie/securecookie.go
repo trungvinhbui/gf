@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/gob"
 	"encoding/json"
@@ -618,4 +619,12 @@ func (m MultiError) any(pred func(Error) bool) bool {
 		}
 	}
 	return false
+}
+
+func NewID() string {
+	// Because the ID is used in the filename, encode it to
+	// use alphanumeric characters only.
+	return strings.TrimRight(
+		base32.StdEncoding.EncodeToString(
+			GenerateRandomKey(32)), "=");
 }
