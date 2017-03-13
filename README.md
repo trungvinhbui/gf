@@ -1,5 +1,4 @@
 # Golang simple framework
-[![Build Status](https://travis-ci.org/goframework/gf.png?branch=master)](https://travis-ci.org/goframework/gf)
 
 ## Start using it
 1. Download and install it:

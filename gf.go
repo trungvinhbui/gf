@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/csrf"
+	"github.com/goframework/gf/db"
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/exterror"
 	"github.com/goframework/gf/fsgzip"
@@ -80,7 +81,7 @@ type patternFunc struct {
 var mListFilter []patternFunc
 var mListHandle []patternFunc
 var mHandle404 func(*Context)
-var mDBGen *sqlDBFactory
+var mDBFactory *db.SqlDBFactory
 var mCsrfProtection *csrf.CsrfProtection
 
 var mSessionStore *sessions.FilesystemStore
@@ -118,6 +119,8 @@ func Run() {
 	cfDatabaseDriver := mCfg.Str("Database.Driver", "")
 	cfDatabaseHost := mCfg.Str("Database.Host", "")
 	cfDatabasePort := mCfg.Int("Database.Port", 0)
+	cfDatabaseServer := mCfg.Str("Database.Server", "")
+
 	cfDatabaseUser := mCfg.Str("Database.User", "")
 	cfDatabasePwd := mCfg.Str("Database.Pwd", "")
 	cfDatabaseName := mCfg.Str("Database.DatabaseName", "")
@@ -130,14 +133,16 @@ func Run() {
 		mStaticWebPath = mStaticWebPath + "/"
 	}
 
-	mDBGen = &sqlDBFactory{
-		cfDatabaseDriver,
-		cfDatabaseHost,
-		cfDatabasePort,
-		cfDatabaseUser,
-		cfDatabasePwd,
-		cfDatabaseName,
-		false,
+	if cfDatabaseServer == "" {
+		cfDatabaseServer = fmt.Sprintf("%s:%d",cfDatabaseHost, cfDatabasePort)
+	}
+
+	mDBFactory = &db.SqlDBFactory{
+		Driver:   cfDatabaseDriver,
+		Server:   cfDatabaseServer,
+		User:     cfDatabaseUser,
+		Pwd:      cfDatabasePwd,
+		Database: cfDatabaseName,
 	}
 
 	if cfEnableHttp == 0 && cfEnableHttps == 0 {
@@ -170,7 +175,7 @@ func Run() {
 	}
 	os.MkdirAll(mCacheStoreDir, os.ModePerm)
 
-	if err = mDBGen.Check(); err != nil {
+	if err = mDBFactory.Check(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -284,6 +289,12 @@ func Handle404(f func(*Context)) {
 type gfHandler struct{}
 
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[RECOVER]: %v\r\n", r)
+		}
+	}()
+
 	r.Close = true
 	
 	path := r.URL.EscapedPath()
@@ -586,8 +597,8 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 		TemplateFunc:   map[string]interface{}{},
 	}
 
-	if mDBGen.IsEnable {
-		context.DB = mDBGen.NewConnect()
+	if mDBFactory.IsEnable {
+		context.DB = mDBFactory.NewConnect()
 	}
 
 	return &context
