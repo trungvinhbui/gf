@@ -11,10 +11,10 @@ import (
 	"github.com/goframework/gf/securecookie"
 	"github.com/goframework/gf/sessions"
 	"io"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
-	"net/http"
-	"net"
 	"reflect"
 	"time"
 )
@@ -47,8 +47,8 @@ type Context struct {
 	Form           Form
 	Host           string
 
-	TemplateFunc   map[string]interface{}
-	DB             *sql.DB
+	TemplateFunc map[string]interface{}
+	DB           *sql.DB
 }
 
 func (ctx *Context) Redirect(path string) {
@@ -179,7 +179,7 @@ func (ctx *Context) SetPersistentCookie(key string, value string, duration time.
 
 // Unset cookie
 func (ctx *Context) DeleteCookie(key string) {
-	ctx.AddResponseHeader("Set-Cookie", key + "=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")
+	ctx.AddResponseHeader("Set-Cookie", key+"=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")
 }
 
 func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, error) {
@@ -212,7 +212,7 @@ func (ctx *Context) ServeStaticFile(filePath string, isAttachment bool) {
 
 type cacheObject struct {
 	ExpiredAt time.Time
-	Data interface{}
+	Data      interface{}
 }
 
 func (ctx *Context) LoadCache(key string, object interface{}) error {
@@ -225,7 +225,7 @@ func (ctx *Context) LoadCache(key string, object interface{}) error {
 	path := filepath.Join(cacheDir, fmt.Sprintf("%x", md5.Sum([]byte(key))))
 	pathExpireTime := path + "_expire_time"
 
-	fileExpireTime, err :=  os.Open(pathExpireTime)
+	fileExpireTime, err := os.Open(pathExpireTime)
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,6 @@ func (ctx *Context) LoadCache(key string, object interface{}) error {
 
 		return errors.New("Cache expired")
 	}
-
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -282,10 +281,9 @@ func (ctx *Context) SaveCache(key string, object interface{}, secondTimeout int)
 	}
 	file.Close()
 
-
 	fileExpireTime, err := os.Create(pathExpireTime)
 	if err == nil {
-		fmt.Fprint(fileExpireTime, time.Now().Add(time.Duration(secondTimeout) * time.Second).Unix())
+		fmt.Fprint(fileExpireTime, time.Now().Add(time.Duration(secondTimeout)*time.Second).Unix())
 	}
 	fileExpireTime.Close()
 

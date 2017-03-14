@@ -2,10 +2,10 @@ package ext
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
-	"path/filepath"
 )
 
 type VarType struct {
@@ -156,7 +156,7 @@ func FolderExists(name string) bool {
 }
 
 func FileNameFromPath(filePath string) string {
-	return  filepath.Base(filePath)
+	return filepath.Base(filePath)
 }
 
 func ArrayContains(s []string, e string) bool {

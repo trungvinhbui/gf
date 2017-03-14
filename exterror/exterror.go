@@ -22,7 +22,7 @@ func (this ExtError) Error() string {
 	return es
 }
 
-func TraceError(err error) error  {
+func TraceError(err error) error {
 	return WrapExtError(err)
 }
 
@@ -40,7 +40,6 @@ func WrapExtError(err error) error {
 		ee = ExtError{err, []string{}}
 	}
 
-
 	pc, fn, line, _ := runtime.Caller(1)
 	if filePathSpliter != "" {
 		fns := strings.SplitN(fn, filePathSpliter, 2)
@@ -51,7 +50,7 @@ func WrapExtError(err error) error {
 
 	funcName := func() string {
 		fnPart := strings.Split(runtime.FuncForPC(pc).Name(), "/")
-		return fnPart[len(fnPart) -1]
+		return fnPart[len(fnPart)-1]
 	}()
 
 	ee.traceStack = append(ee.traceStack, fmt.Sprintf("[%s:%d]    %s", fn, line, funcName))

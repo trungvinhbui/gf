@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-const DEFAULT_HTTP_PORT  = ":80"
+const DEFAULT_HTTP_PORT = ":80"
 const DEFAULT_HTTPS_PORT = ":443"
 
 const DEFAULT_SERVER_CONFIG_FILE string = "./server.cfg"
@@ -52,7 +52,7 @@ const DEFAULT_SERVER_ENABLE_HTTP2 = 1
 
 const SERVER_SESSION_ID string = "session_id"
 const SERVER_SESSION_MAX_LENGTH = 131072 //128KB
-const SERVER_SESSION_KEEP_DAY = 7 // 1 week
+const SERVER_SESSION_KEEP_DAY = 7        // 1 week
 
 const METHOD_GET string = "GET"
 const METHOD_POST string = "POST"
@@ -134,7 +134,7 @@ func Run() {
 	}
 
 	if cfDatabaseServer == "" {
-		cfDatabaseServer = fmt.Sprintf("%s:%d",cfDatabaseHost, cfDatabasePort)
+		cfDatabaseServer = fmt.Sprintf("%s:%d", cfDatabaseHost, cfDatabasePort)
 	}
 
 	mDBFactory = &db.SqlDBFactory{
@@ -296,7 +296,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	r.Close = true
-	
+
 	path := r.URL.EscapedPath()
 
 	if mForceHttps != 0 {
@@ -316,7 +316,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.LastIndex(path, "/") == 0 &&
 		strings.LastIndex(path, "\\") < 0 &&
 		strings.LastIndex(path, ".") > 0 &&
-		ext.FileExists(mStaticDir + path) {
+		ext.FileExists(mStaticDir+path) {
 		path = mStaticWebPath + path[1:]
 	}
 
@@ -521,7 +521,7 @@ func cleanUpCacheDir(dir string) (countFile int, empty bool) {
 				if empty && f.ModTime().Before(time.Now().AddDate(0, 0, -1)) {
 					os.Remove(subPath)
 				}
-			} else 	if strings.HasSuffix(subPath, "_expire_time") {
+			} else if strings.HasSuffix(subPath, "_expire_time") {
 				file, err := os.Open(subPath)
 				if err == nil {
 					var expTimeUnix int64
@@ -532,7 +532,7 @@ func cleanUpCacheDir(dir string) (countFile int, empty bool) {
 						if os.Remove(subPath) == nil {
 							count++
 						}
-						if os.Remove(strings.Replace(subPath,"_expire_time","", 1)) == nil {
+						if os.Remove(strings.Replace(subPath, "_expire_time", "", 1)) == nil {
 							count++
 						}
 					}

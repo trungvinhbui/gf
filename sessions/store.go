@@ -5,12 +5,12 @@
 package sessions
 
 import (
+	"github.com/goframework/gf/securecookie"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
-	"github.com/goframework/gf/securecookie"
 )
 
 // Store is an interface for custom session stores.

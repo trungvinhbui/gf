@@ -2,10 +2,10 @@ package db
 
 import (
 	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
-	"strconv"
-	"reflect"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
+	"reflect"
+	"strconv"
 )
 
 //Remember call rows.Next() before call SqlScanStruct(), finally should be rows.Close()
@@ -49,7 +49,7 @@ func SqlScanStruct(rows *sql.Rows, outputStruct interface{}) error {
 	n := v.NumField() // number of fields in struct
 
 	for i := 0; i < n; i = i + 1 {
-		if ! v.Field(i).CanSet() {
+		if !v.Field(i).CanSet() {
 			continue
 		}
 
@@ -72,71 +72,71 @@ func SqlScanStruct(rows *sql.Rows, outputStruct interface{}) error {
 		f := v.Field(i)
 		switch f.Kind() {
 		case reflect.String:
-			v.Field(i).SetString(fmt.Sprintf("%v",fieldValue))
+			v.Field(i).SetString(fmt.Sprintf("%v", fieldValue))
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			intValue, _ := strconv.ParseInt(fmt.Sprintf("%v",fieldValue), 10, 64)
+			intValue, _ := strconv.ParseInt(fmt.Sprintf("%v", fieldValue), 10, 64)
 			v.Field(i).SetInt(intValue)
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			uintValue, _ := strconv.ParseUint(fmt.Sprintf("%v",fieldValue), 10, 64)
+			uintValue, _ := strconv.ParseUint(fmt.Sprintf("%v", fieldValue), 10, 64)
 			v.Field(i).SetUint(uintValue)
 		case reflect.Float64, reflect.Float32:
-			floatValue, _ := strconv.ParseFloat(fmt.Sprintf("%v",fieldValue), 64)
+			floatValue, _ := strconv.ParseFloat(fmt.Sprintf("%v", fieldValue), 64)
 			v.Field(i).SetFloat(floatValue)
 		case reflect.Bool:
-			boolValue, _ := strconv.ParseBool(fmt.Sprintf("%v",fieldValue))
+			boolValue, _ := strconv.ParseBool(fmt.Sprintf("%v", fieldValue))
 			v.Field(i).SetBool(boolValue)
 		case reflect.Ptr:
 			switch f.Type() {
 			case reflect.PtrTo(reflect.TypeOf(string(""))):
-				svalue := fmt.Sprintf("%v",fieldValue)
+				svalue := fmt.Sprintf("%v", fieldValue)
 				v.Field(i).Set(reflect.ValueOf(&svalue))
 			case reflect.PtrTo(reflect.TypeOf(int(0))):
-				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v",fieldValue), 10, 64)
+				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v", fieldValue), 10, 64)
 				intValue := int(int64Value)
 				v.Field(i).Set(reflect.ValueOf(&intValue))
 			case reflect.PtrTo(reflect.TypeOf(int8(0))):
-				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v",fieldValue), 10, 64)
+				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v", fieldValue), 10, 64)
 				int8Value := int8(int64Value)
 				v.Field(i).Set(reflect.ValueOf(&int8Value))
 			case reflect.PtrTo(reflect.TypeOf(int16(0))):
-				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v",fieldValue), 10, 64)
+				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v", fieldValue), 10, 64)
 				int16Value := int16(int64Value)
 				v.Field(i).Set(reflect.ValueOf(&int16Value))
 			case reflect.PtrTo(reflect.TypeOf(int32(0))):
-				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v",fieldValue), 10, 64)
+				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v", fieldValue), 10, 64)
 				int32Value := int32(int64Value)
 				v.Field(i).Set(reflect.ValueOf(&int32Value))
 			case reflect.PtrTo(reflect.TypeOf(int64(0))):
-				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v",fieldValue), 10, 64)
+				int64Value, _ := strconv.ParseInt(fmt.Sprintf("%v", fieldValue), 10, 64)
 				v.Field(i).Set(reflect.ValueOf(&int64Value))
 			case reflect.PtrTo(reflect.TypeOf(uint(0))):
-				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v",fieldValue), 10, 64)
+				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v", fieldValue), 10, 64)
 				uintValue := uint(uint64Value)
 				v.Field(i).Set(reflect.ValueOf(&uintValue))
 			case reflect.PtrTo(reflect.TypeOf(uint8(0))):
-				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v",fieldValue), 10, 64)
+				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v", fieldValue), 10, 64)
 				uint8Value := uint8(uint64Value)
 				v.Field(i).Set(reflect.ValueOf(&uint8Value))
 			case reflect.PtrTo(reflect.TypeOf(uint16(0))):
-				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v",fieldValue), 10, 64)
+				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v", fieldValue), 10, 64)
 				uint16Value := uint16(uint64Value)
 				v.Field(i).Set(reflect.ValueOf(&uint16Value))
 			case reflect.PtrTo(reflect.TypeOf(uint32(0))):
-				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v",fieldValue), 10, 64)
+				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v", fieldValue), 10, 64)
 				uint32Value := uint32(uint64Value)
 				v.Field(i).Set(reflect.ValueOf(&uint32Value))
 			case reflect.PtrTo(reflect.TypeOf(uint64(0))):
-				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v",fieldValue), 10, 64)
+				uint64Value, _ := strconv.ParseUint(fmt.Sprintf("%v", fieldValue), 10, 64)
 				v.Field(i).Set(reflect.ValueOf(&uint64Value))
 			case reflect.PtrTo(reflect.TypeOf(float32(0))):
-				float64Value, _ := strconv.ParseFloat(fmt.Sprintf("%v",fieldValue), 64)
+				float64Value, _ := strconv.ParseFloat(fmt.Sprintf("%v", fieldValue), 64)
 				float32Value := float32(float64Value)
 				v.Field(i).Set(reflect.ValueOf(&float32Value))
 			case reflect.PtrTo(reflect.TypeOf(float64(0))):
-				float64Value, _ := strconv.ParseFloat(fmt.Sprintf("%v",fieldValue), 64)
+				float64Value, _ := strconv.ParseFloat(fmt.Sprintf("%v", fieldValue), 64)
 				v.Field(i).Set(reflect.ValueOf(&float64Value))
 			case reflect.PtrTo(reflect.TypeOf(bool(false))):
-				boolValue, _ := strconv.ParseBool(fmt.Sprintf("%v",fieldValue))
+				boolValue, _ := strconv.ParseBool(fmt.Sprintf("%v", fieldValue))
 				v.Field(i).Set(reflect.ValueOf(&boolValue))
 			}
 		default:

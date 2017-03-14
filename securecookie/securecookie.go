@@ -626,5 +626,5 @@ func NewID() string {
 	// use alphanumeric characters only.
 	return strings.TrimRight(
 		base32.StdEncoding.EncodeToString(
-			GenerateRandomKey(32)), "=");
+			GenerateRandomKey(32)), "=")
 }

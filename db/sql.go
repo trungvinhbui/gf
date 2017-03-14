@@ -2,10 +2,10 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/goframework/gf/exterror"
 	"log"
-	"fmt"
 )
 
 const SQL_TAG = "sql"
@@ -21,7 +21,7 @@ const (
 
 // map driver name and connection string
 var _DRIVERS = map[string]string{
-	DRIVER_MYSQL:FORMART_CON_STR_MYSQL,
+	DRIVER_MYSQL: FORMART_CON_STR_MYSQL,
 }
 
 type SqlDBFactory struct {

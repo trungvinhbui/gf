@@ -11,7 +11,7 @@ var _FUNC_MAP = template.FuncMap{
 	"json": tmplJson,
 }
 
-func ParseTemplateFiles(templateFunc map[string]interface{}, filename... string) (*template.Template, error) {
+func ParseTemplateFiles(templateFunc map[string]interface{}, filename ...string) (*template.Template, error) {
 	if len(filename) > 0 {
 		var funcMap template.FuncMap
 		if len(templateFunc) > 0 {
@@ -37,4 +37,3 @@ func tmplJson(v interface{}) template.JS {
 	a, _ := json.Marshal(v)
 	return template.JS(a)
 }
-

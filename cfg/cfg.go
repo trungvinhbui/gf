@@ -10,7 +10,7 @@ import (
 )
 
 type Cfg struct {
-	Data map[string]string
+	Data    map[string]string
 	ArrData map[string][]string
 }
 
