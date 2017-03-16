@@ -24,40 +24,74 @@ import (
 	"time"
 )
 
-const DEFAULT_HTTP_PORT = ":80"
-const DEFAULT_HTTPS_PORT = ":443"
+const (
+	CFG_KEY_SERVER_STATIC_DIR          = "Server.StaticDir"
+	CFG_KEY_SERVER_STATIC_USE_MIN      = "Server.StaticUseMin"
+	CFG_KEY_SERVER_VIEW_DIR            = "Server.ViewDir"
+	CFG_KEY_SERVER_STATIC_WEB_PATH     = "Server.StaticWebPath"
+	CFG_KEY_SERVER_ADDR                = "Server.Addr"
+	CFG_KEY_SERVER_READ_TIMEOUT        = "Server.ReadTimeout"
+	CFG_KEY_SERVER_WRITE_TIMEOUT       = "Server.WriteTimeout"
+	CFG_KEY_SERVER_MAX_HEADER_BYTES    = "Server.MaxHeaderBytes"
+	CFG_KEY_COOKIE_SECRET              = "Server.CookieSecret"
+	CFG_KEY_SESSION_STORE_DIR          = "Server.SessionStoreDir"
+	CFG_KEY_CACHE_STORE_DIR            = "Server.CacheStoreDir"
+	CFG_KEY_SERVER_ENABLE_HTTP         = "Server.EnableHttp"
+	CFG_KEY_SERVER_ENABLE_HTTPS        = "Server.EnableHttps"
+	CFG_KEY_SERVER_ENABLE_HTTP2        = "Server.EnableHttp2"
+	CFG_KEY_SERVER_ADDR_HTTPS          = "Server.AddrHttps"
+	CFG_KEY_SERVER_CERT_FILE           = "Server.CertFile"
+	CFG_KEY_SERVER_KEY_FILE            = "Server.KeyFile"
+	CFG_KEY_SERVER_ENABLE_GZIP         = "Server.EnableGzip"
+	CFG_KEY_SERVER_FORCE_HTTPS         = "Server.ForceHttps"
+	CFG_KEY_SERVER_ENABLE_CSRF_PROTECT = "Server.EnableCsrfProtect"
+	CFG_KEY_DATABASE_DRIVER            = "Database.Driver"
+	CFG_KEY_DATABASE_HOST              = "Database.Host"
+	CFG_KEY_DATABASE_PORT              = "Database.Port"
+	CFG_KEY_DATABASE_SERVER            = "Database.Server"
+	CFG_KEY_DATABASE_USER              = "Database.User"
+	CFG_KEY_DATABASE_PWD               = "Database.Pwd"
+	CFG_KEY_DATABASE_SCHEMA            = "Database.DatabaseName"
+)
 
-const DEFAULT_SERVER_CONFIG_FILE string = "./server.cfg"
-const DEFAULT_SERVER_STATIC_DIR string = "./static"
-const DEFAULT_SERVER_STATIC_WEB_PATH string = "/static"
-const DEFAULT_SERVER_VIEW_DIR string = "./view"
-const DEFAULT_SERVER_ADDR string = ":8026"
-const DEFAULT_SERVER_ADDR_HTTPS string = ":44326"
-const DEFAULT_SERVER_CERT_FILE string = "./cert.pem"
-const DEFAULT_SERVER_KEY_FILE string = "./key.pem"
-const DEFAULT_SERVER_READ_TIMEOUT = 120
-const DEFAULT_SERVER_WRITE_TIMEOUT = 120
-const DEFAULT_SERVER_MAX_HEADER_BYTES = 65536
-const DEFAULT_COOKIE_SECRET string = "COOKIE_SECRET"
-const DEFAULT_SESSION_STORE_DIR = "./session_store"
-const DEFAULT_CACHE_STORE_DIR = "./cache_store"
+const (
+	DEFAULT_HTTP_PORT                  = ":80"
+	DEFAULT_HTTPS_PORT                 = ":443"
+	DEFAULT_SERVER_CONFIG_FILE         = "./server.cfg"
+	DEFAULT_SERVER_STATIC_DIR          = "./static"
+	DEFAULT_SERVER_STATIC_USE_MIN      = 0
+	DEFAULT_SERVER_STATIC_WEB_PATH     = "/static"
+	DEFAULT_SERVER_VIEW_DIR            = "./view"
+	DEFAULT_SERVER_ADDR                = ":8026"
+	DEFAULT_SERVER_ADDR_HTTPS          = ":44326"
+	DEFAULT_SERVER_CERT_FILE           = "./cert.pem"
+	DEFAULT_SERVER_KEY_FILE            = "./key.pem"
+	DEFAULT_SERVER_READ_TIMEOUT        = 120
+	DEFAULT_SERVER_WRITE_TIMEOUT       = 120
+	DEFAULT_SERVER_MAX_HEADER_BYTES    = 65536
+	DEFAULT_SERVER_ENABLE_GZIP         = 1
+	DEFAULT_SERVER_FORCE_HTTPS         = 0
+	DEFAULT_SERVER_ENABLE_CSRF_PROTECT = 1
+	DEFAULT_COOKIE_SECRET              = "COOKIE_SECRET"
+	DEFAULT_SESSION_STORE_DIR          = "./session_store"
+	DEFAULT_CACHE_STORE_DIR            = "./cache_store"
+	DEFAULT_SERVER_ENABLE_HTTP         = 1
+	DEFAULT_SERVER_ENABLE_HTTPS        = 0
+	DEFAULT_SERVER_ENABLE_HTTP2        = 1
+)
 
-const DEFAULT_SERVER_ENABLE_GZIP = 1
-const DEFAULT_SERVER_FORCE_HTTPS = 0
-const DEFAULT_SERVER_ENABLE_CSRF_PROTECT = 1
+const (
+	SERVER_SESSION_ID         = "session_id"
+	SERVER_SESSION_MAX_LENGTH = 131072 //128KB
+	SERVER_SESSION_KEEP_DAY   = 7      // 1 week
 
-const DEFAULT_SERVER_ENABLE_HTTP = 1
-const DEFAULT_SERVER_ENABLE_HTTPS = 0
-const DEFAULT_SERVER_ENABLE_HTTP2 = 1
+	METHOD_GET  = "GET"
+	METHOD_POST = "POST"
 
-const SERVER_SESSION_ID string = "session_id"
-const SERVER_SESSION_MAX_LENGTH = 131072 //128KB
-const SERVER_SESSION_KEEP_DAY = 7        // 1 week
+	_IS_CSRF_PROTECTED = "_IS_CSRF_PROTECTED"
+)
 
-const METHOD_GET string = "GET"
-const METHOD_POST string = "POST"
-
-const _IS_CSRF_PROTECTED string = "_IS_CSRF_PROTECTED"
+var _MINI_FILE_EXT = []string{"js", "css"}
 
 var mStaticDir string
 var mViewDir string
@@ -66,6 +100,7 @@ var mSessionStoreDir string
 var mCacheStoreDir string
 var mEnableGzip = 1
 var mForceHttps = 0
+var mStaticUseMin = 0
 
 var mServerHttpAddr string
 var mServerHttpsAddr string
@@ -92,40 +127,41 @@ func Run() {
 
 	mCfg.Load(DEFAULT_SERVER_CONFIG_FILE)
 
-	cfStaticDir := mCfg.Str("Server.StaticDir", DEFAULT_SERVER_STATIC_DIR)
-	cfViewDir := mCfg.Str("Server.ViewDir", DEFAULT_SERVER_VIEW_DIR)
+	cfStaticDir := mCfg.Str(CFG_KEY_SERVER_STATIC_DIR, DEFAULT_SERVER_STATIC_DIR)
+	cfViewDir := mCfg.Str(CFG_KEY_SERVER_VIEW_DIR, DEFAULT_SERVER_VIEW_DIR)
 
-	cfAddr := mCfg.Str("Server.Addr", DEFAULT_SERVER_ADDR)
-	cfReadTimeout := mCfg.Int("Server.ReadTimeout", DEFAULT_SERVER_READ_TIMEOUT)
-	cfWriteTimeout := mCfg.Int("Server.WriteTimeout", DEFAULT_SERVER_WRITE_TIMEOUT)
-	cfMaxHeaderBytes := mCfg.Int("Server.MaxHeaderBytes", DEFAULT_SERVER_MAX_HEADER_BYTES)
-	cfCookieSecret := mCfg.Str("Server.CookieSecret", DEFAULT_COOKIE_SECRET)
-	cfSessionStoreDir := mCfg.Str("Server.SessionStoreDir", DEFAULT_SESSION_STORE_DIR)
-	cfCacheStoreDir := mCfg.Str("Server.CacheStoreDir", DEFAULT_CACHE_STORE_DIR)
-	cfEnableHttp := mCfg.Int("Server.EnableHttp", DEFAULT_SERVER_ENABLE_HTTP)
-	cfEnableHttps := mCfg.Int("Server.EnableHttps", DEFAULT_SERVER_ENABLE_HTTPS)
-	cfEnableHttp2 := mCfg.Int("Server.EnableHttp2", DEFAULT_SERVER_ENABLE_HTTP2)
-	cfAddrHttps := mCfg.Str("Server.AddrHttps", DEFAULT_SERVER_ADDR_HTTPS)
-	cfCertFile := mCfg.Str("Server.CertFile", DEFAULT_SERVER_CERT_FILE)
-	cfKeyFile := mCfg.Str("Server.KeyFile", DEFAULT_SERVER_KEY_FILE)
+	cfAddr := mCfg.Str(CFG_KEY_SERVER_ADDR, DEFAULT_SERVER_ADDR)
+	cfReadTimeout := mCfg.Int(CFG_KEY_SERVER_READ_TIMEOUT, DEFAULT_SERVER_READ_TIMEOUT)
+	cfWriteTimeout := mCfg.Int(CFG_KEY_SERVER_WRITE_TIMEOUT, DEFAULT_SERVER_WRITE_TIMEOUT)
+	cfMaxHeaderBytes := mCfg.Int(CFG_KEY_SERVER_MAX_HEADER_BYTES, DEFAULT_SERVER_MAX_HEADER_BYTES)
+	cfCookieSecret := mCfg.Str(CFG_KEY_COOKIE_SECRET, DEFAULT_COOKIE_SECRET)
+	cfSessionStoreDir := mCfg.Str(CFG_KEY_SESSION_STORE_DIR, DEFAULT_SESSION_STORE_DIR)
+	cfCacheStoreDir := mCfg.Str(CFG_KEY_CACHE_STORE_DIR, DEFAULT_CACHE_STORE_DIR)
+	cfEnableHttp := mCfg.Int(CFG_KEY_SERVER_ENABLE_HTTP, DEFAULT_SERVER_ENABLE_HTTP)
+	cfEnableHttps := mCfg.Int(CFG_KEY_SERVER_ENABLE_HTTPS, DEFAULT_SERVER_ENABLE_HTTPS)
+	cfEnableHttp2 := mCfg.Int(CFG_KEY_SERVER_ENABLE_HTTP2, DEFAULT_SERVER_ENABLE_HTTP2)
+	cfAddrHttps := mCfg.Str(CFG_KEY_SERVER_ADDR_HTTPS, DEFAULT_SERVER_ADDR_HTTPS)
+	cfCertFile := mCfg.Str(CFG_KEY_SERVER_CERT_FILE, DEFAULT_SERVER_CERT_FILE)
+	cfKeyFile := mCfg.Str(CFG_KEY_SERVER_KEY_FILE, DEFAULT_SERVER_KEY_FILE)
 
 	mServerHttpAddr = cfAddr
 	mServerHttpsAddr = cfAddrHttps
 
-	mEnableGzip = mCfg.Int("Server.EnableGzip", DEFAULT_SERVER_ENABLE_GZIP)
-	mForceHttps = mCfg.Int("Server.ForceHttps", DEFAULT_SERVER_FORCE_HTTPS)
-	cfEnableCsrfProtect := mCfg.Int("Server.EnableCsrfProtect", DEFAULT_SERVER_ENABLE_CSRF_PROTECT)
+	mStaticUseMin = mCfg.Int(CFG_KEY_SERVER_STATIC_USE_MIN, DEFAULT_SERVER_STATIC_USE_MIN)
+	mEnableGzip = mCfg.Int(CFG_KEY_SERVER_ENABLE_GZIP, DEFAULT_SERVER_ENABLE_GZIP)
+	mForceHttps = mCfg.Int(CFG_KEY_SERVER_FORCE_HTTPS, DEFAULT_SERVER_FORCE_HTTPS)
+	cfEnableCsrfProtect := mCfg.Int(CFG_KEY_SERVER_ENABLE_CSRF_PROTECT, DEFAULT_SERVER_ENABLE_CSRF_PROTECT)
 
-	cfDatabaseDriver := mCfg.Str("Database.Driver", "")
-	cfDatabaseHost := mCfg.Str("Database.Host", "")
-	cfDatabasePort := mCfg.Int("Database.Port", 0)
-	cfDatabaseServer := mCfg.Str("Database.Server", "")
+	cfDatabaseDriver := mCfg.Str(CFG_KEY_DATABASE_DRIVER, "")
+	cfDatabaseHost := mCfg.Str(CFG_KEY_DATABASE_HOST, "")
+	cfDatabasePort := mCfg.Int(CFG_KEY_DATABASE_PORT, 0)
+	cfDatabaseServer := mCfg.Str(CFG_KEY_DATABASE_SERVER, "")
 
-	cfDatabaseUser := mCfg.Str("Database.User", "")
-	cfDatabasePwd := mCfg.Str("Database.Pwd", "")
-	cfDatabaseName := mCfg.Str("Database.DatabaseName", "")
+	cfDatabaseUser := mCfg.Str(CFG_KEY_DATABASE_USER, "")
+	cfDatabasePwd := mCfg.Str(CFG_KEY_DATABASE_PWD, "")
+	cfDatabaseName := mCfg.Str(CFG_KEY_DATABASE_SCHEMA, "")
 
-	mStaticWebPath = mCfg.Str("Server.StaticWebPath", DEFAULT_SERVER_STATIC_WEB_PATH)
+	mStaticWebPath = mCfg.Str(CFG_KEY_SERVER_STATIC_WEB_PATH, DEFAULT_SERVER_STATIC_WEB_PATH)
 	if !strings.HasPrefix(mStaticWebPath, "/") {
 		mStaticWebPath = "/" + mStaticWebPath
 	}
@@ -297,7 +333,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	r.Close = true
 
-	path := r.URL.EscapedPath()
+	urlPath := r.URL.EscapedPath()
 
 	if mForceHttps != 0 {
 		if r.TLS == nil {
@@ -313,18 +349,21 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Root static files (robots.txt, favicon.icon, ...)
-	if strings.LastIndex(path, "/") == 0 &&
-		strings.LastIndex(path, "\\") < 0 &&
-		strings.LastIndex(path, ".") > 0 &&
-		ext.FileExists(mStaticDir+path) {
-		path = mStaticWebPath + path[1:]
+	if strings.LastIndex(urlPath, "/") == 0 &&
+		strings.LastIndex(urlPath, "\\") < 0 &&
+		strings.LastIndex(urlPath, ".") > 0 &&
+		ext.FileExists(mStaticDir+urlPath) {
+		urlPath = mStaticWebPath + urlPath[1:]
 	}
 
-	if strings.HasPrefix(path, mStaticWebPath) {
+	if strings.HasPrefix(urlPath, mStaticWebPath) {
 		if r.Method == METHOD_GET {
-			path = path[len(mStaticWebPath):]
-			staticFile, err := filepath.Abs(mStaticDir + path)
+			urlPath = urlPath[len(mStaticWebPath):]
+			staticFile, err := filepath.Abs(mStaticDir + urlPath)
 			if err == nil && strings.HasPrefix(staticFile, mStaticDir) && ext.FileExists(staticFile) {
+				if mStaticUseMin == 1 {
+					staticFile = toMinFile(staticFile)
+				}
 				w.Header().Add("Cache-Control", "max-age=0, must-revalidate")
 				if mEnableGzip == 1 {
 					fsgzip.ServeFile(w, r, staticFile)
@@ -351,7 +390,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for _, pf := range mListFilter {
-		if ext.WildMatch(pf.Pattern, path) {
+		if ext.WildMatch(pf.Pattern, urlPath) {
 			if context == nil {
 				context = createContext(w, r)
 				if !csrfProtectHTTP(context) {
@@ -382,7 +421,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !methodMatched {
 			continue
 		}
-		if vars, matched := ext.VarMatch(pf.Pattern, path); matched {
+		if vars, matched := ext.VarMatch(pf.Pattern, urlPath); matched {
 			/*-----------------------------*/
 			if context == nil {
 				context = createContext(w, r)
@@ -425,6 +464,21 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Write([]byte("404 - Not found"))
 	}
+}
+
+func toMinFile(filePath string) string {
+	for _, ex := range _MINI_FILE_EXT {
+		if strings.HasSuffix(filePath, "."+ex) {
+			if !(strings.HasSuffix(filePath, ".min."+ex)) {
+				minFilePath := filePath[:len(filePath)-len(ex)] + "min." + ex
+				if ext.FileExists(minFilePath) {
+					return minFilePath
+				}
+			}
+			break
+		}
+	}
+	return filePath
 }
 
 func renderView(context *Context) {
