@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -326,8 +327,8 @@ type gfHandler struct{}
 
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("[RECOVER]: %v\r\n", r)
+		if rec := recover(); rec != nil {
+			log.Printf("[RECOVER]: %v\r\n\t%s", rec, debug.Stack())
 		}
 	}()
 
