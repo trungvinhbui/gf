@@ -328,7 +328,9 @@ type gfHandler struct{}
 func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			log.Printf("[RECOVER]: %v\r\n\t%s", rec, debug.Stack())
+			log.Printf("[RECOVER]: %v\r\n\t%s\r\n", rec, debug.Stack())
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("500 - Internal Server Error"))
 		}
 	}()
 
@@ -384,9 +386,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var context *Context = nil
 	defer func() {
 		if context != nil {
-			if context.DB != nil {
-				context.DB.Close()
-			}
+			context.Cleanup()
 		}
 	}()
 
@@ -451,7 +451,6 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
 	if mHandle404 != nil {
 		if context == nil {
 			context = createContext(w, r)
@@ -461,8 +460,17 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		mHandle404(context)
+		if context.RedirectStatus != 0 {
+			http.Redirect(w, r, context.RedirectPath, context.RedirectStatus)
+			return
+		}
+		if context.isSelfResponse {
+			return
+		}
+		context.httpResponeCode = http.StatusNotFound
 		renderView(context)
 	} else {
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("404 - Not found"))
 	}
 }
@@ -486,6 +494,7 @@ func renderView(context *Context) {
 
 	if context.JsonResponse != nil {
 		context.w.Header().Add("Content-Type", "application/json; charset=utf-8")
+		context.w.WriteHeader(context.httpResponeCode)
 		jsonBytes, err := json.Marshal(context.JsonResponse)
 		if err != nil {
 			log.Println(exterror.WrapExtError(err))
@@ -521,12 +530,13 @@ func renderView(context *Context) {
 			if context.w.Header().Get("Content-Type") == "" {
 				context.w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			}
+			context.w.WriteHeader(context.httpResponeCode)
 
 			gzWriter := gzip.NewWriter(context.w)
 			err = tem.Execute(gzWriter, context.ViewData)
 			gzWriter.Flush()
-
 		} else {
+			context.w.WriteHeader(context.httpResponeCode)
 			err = tem.Execute(context.w, context.ViewData)
 		}
 
@@ -635,21 +645,22 @@ func createContext(w http.ResponseWriter, r *http.Request) *Context {
 	r.ParseMultipartForm(MAX_MULTIPART_MEMORY)
 
 	context := Context{
-		w:              w,
-		r:              r,
-		vars:           map[string]interface{}{},
-		isSelfResponse: false,
-		Config:         &mCfg,
-		Session:        session,
-		UrlPath:        r.URL.Path,
-		ViewData:       map[string]interface{}{},
-		Method:         r.Method,
-		IsGetMethod:    r.Method == METHOD_GET,
-		IsPostMethod:   r.Method == METHOD_POST,
-		IsUsingTSL:     r.TLS != nil,
-		Host:           host,
-		Form:           Form{r.Form},
-		TemplateFunc:   map[string]interface{}{},
+		w:               w,
+		r:               r,
+		vars:            map[string]interface{}{},
+		isSelfResponse:  false,
+		httpResponeCode: http.StatusOK,
+		Config:          &mCfg,
+		Session:         session,
+		UrlPath:         r.URL.Path,
+		ViewData:        map[string]interface{}{},
+		Method:          r.Method,
+		IsGetMethod:     r.Method == METHOD_GET,
+		IsPostMethod:    r.Method == METHOD_POST,
+		IsUsingTSL:      r.TLS != nil,
+		Host:            host,
+		Form:            Form{r.Form, r},
+		TemplateFunc:    map[string]interface{}{},
 	}
 
 	if mDBFactory.IsEnable {

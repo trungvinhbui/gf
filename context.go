@@ -24,10 +24,11 @@ const MAX_MULTIPART_MEMORY = 1024 * 1024 * 5
 var mGobRegisted = make(map[string]bool)
 
 type Context struct {
-	w              http.ResponseWriter
-	r              *http.Request
-	vars           map[string]interface{}
-	isSelfResponse bool
+	w               http.ResponseWriter
+	r               *http.Request
+	vars            map[string]interface{}
+	isSelfResponse  bool
+	httpResponeCode int
 
 	Config         *cfg.Cfg
 	RouteVars      map[string]ext.VarType
@@ -49,6 +50,19 @@ type Context struct {
 
 	TemplateFunc map[string]interface{}
 	DB           *sql.DB
+}
+
+func (ctx *Context) Cleanup() {
+	if ctx != nil {
+		if ctx.r != nil {
+			if ctx.r.MultipartForm != nil {
+				ctx.r.MultipartForm.RemoveAll()
+			}
+		}
+		if ctx.DB != nil {
+			ctx.DB.Close()
+		}
+	}
 }
 
 func (ctx *Context) Redirect(path string) {
@@ -182,16 +196,19 @@ func (ctx *Context) DeleteCookie(key string) {
 	ctx.AddResponseHeader("Set-Cookie", key+"=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")
 }
 
-func (ctx *Context) GetUploadFile(inputName string) (string, io.ReadCloser, error) {
+func (ctx *Context) GetUploadFile(inputName string) (*FormFile, error) {
 	ctx.r.ParseMultipartForm(MAX_MULTIPART_MEMORY)
 	var file io.ReadCloser
 	file, handler, err := ctx.r.FormFile(inputName)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	fileName := handler.Filename
+	formFile := &FormFile{
+		stream:   file,
+		FileName: handler.Filename,
+	}
 
-	return fileName, file, nil
+	return formFile, nil
 }
 
 func (ctx *Context) ServeStaticFile(filePath string, isAttachment bool) {

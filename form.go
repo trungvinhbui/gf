@@ -2,6 +2,8 @@ package gf
 
 import (
 	"html"
+	"io"
+	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
@@ -11,10 +13,29 @@ const FORM_TAG = "form"
 
 type Form struct {
 	formMap map[string][]string
+	r       *http.Request
+}
+
+type FormFile struct {
+	stream   io.ReadCloser
+	FileName string
+}
+
+func (f *FormFile) Read(p []byte) (n int, err error) {
+	return f.stream.Read(p)
+}
+
+func (f *FormFile) Close() error {
+	return f.stream.Close()
 }
 
 func (this *Form) Exist(key string) bool {
 	_, ok := this.formMap[key]
+	if !ok {
+		if this.r.MultipartForm != nil && this.r.MultipartForm.File != nil {
+			_, ok = this.r.MultipartForm.File[key]
+		}
+	}
 	return ok
 }
 
@@ -101,6 +122,21 @@ func (this *Form) Float64(key string) float64 {
 	return float64(floatValue)
 }
 
+func (this *Form) File(key string) *FormFile {
+	this.r.ParseMultipartForm(MAX_MULTIPART_MEMORY)
+	var file io.ReadCloser
+	file, handler, err := this.r.FormFile(key)
+	if err != nil || file == nil {
+		return nil
+	}
+	formFile := &FormFile{
+		stream:   file,
+		FileName: handler.Filename,
+	}
+
+	return formFile
+}
+
 // Read form values and set to a struct
 // Ex:
 //    Call: ctx.Form.ReadStruct(&formABCVar)
@@ -143,8 +179,7 @@ func (this *Form) ReadStruct(obj interface{}) {
 			continue
 		}
 
-		f := v.Field(i)
-		switch f.Kind() {
+		switch v.Field(i).Kind() {
 		case reflect.String:
 			v.Field(i).SetString(this.String(formKey))
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -160,12 +195,12 @@ func (this *Form) ReadStruct(obj interface{}) {
 			boolValue, _ := strconv.ParseBool(this.String(formKey))
 			v.Field(i).SetBool(boolValue)
 		case reflect.Slice:
-			if f.Type() == typeOfStringSlice {
+			if v.Field(i).Type() == typeOfStringSlice {
 				stringArray := reflect.ValueOf(this.Array(formKey))
 				v.Field(i).Set(stringArray)
 			}
 		case reflect.Ptr:
-			switch f.Type() {
+			switch v.Field(i).Type() {
 			case reflect.PtrTo(reflect.TypeOf(string(""))):
 				svalue := this.String(formKey)
 				v.Field(i).Set(reflect.ValueOf(&svalue))
@@ -217,6 +252,12 @@ func (this *Form) ReadStruct(obj interface{}) {
 			case reflect.PtrTo(reflect.TypeOf(bool(false))):
 				boolValue, _ := strconv.ParseBool(this.String(formKey))
 				v.Field(i).Set(reflect.ValueOf(&boolValue))
+			case reflect.PtrTo(reflect.TypeOf(FormFile{})):
+				formFile := this.File(formKey)
+				if formFile != nil {
+					v.Field(i).Set(reflect.ValueOf(formFile))
+					continue
+				}
 			}
 		default:
 			// nothing set so reset to previous
