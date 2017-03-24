@@ -123,7 +123,6 @@ func (this *Form) Float64(key string) float64 {
 }
 
 func (this *Form) File(key string) *FormFile {
-	this.r.ParseMultipartForm(MAX_MULTIPART_MEMORY)
 	var file io.ReadCloser
 	file, handler, err := this.r.FormFile(key)
 	if err != nil || file == nil {

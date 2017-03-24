@@ -30,6 +30,24 @@ func (this *Cfg) Int(key string, defaultValue int) int {
 	return defaultValue
 }
 
+func (this *Cfg) Bool(key string, defaultValue bool) bool {
+	if v, ok := this.Data[key]; ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
+		}
+	}
+	return defaultValue
+}
+
+func (this *Cfg) Int64(key string, defaultValue int64) int64 {
+	if v, ok := this.Data[key]; ok {
+		if num, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return num
+		}
+	}
+	return defaultValue
+}
+
 func (this *Cfg) List(key string) []string {
 	if v, ok := this.ArrData[key]; ok {
 		return v

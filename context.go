@@ -10,7 +10,6 @@ import (
 	"github.com/goframework/gf/ext"
 	"github.com/goframework/gf/securecookie"
 	"github.com/goframework/gf/sessions"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -57,6 +56,9 @@ func (ctx *Context) Cleanup() {
 		if ctx.r != nil {
 			if ctx.r.MultipartForm != nil {
 				ctx.r.MultipartForm.RemoveAll()
+			}
+			if ctx.r.Body != nil {
+				ctx.r.Body.Close()
 			}
 		}
 		if ctx.DB != nil {
@@ -197,18 +199,13 @@ func (ctx *Context) DeleteCookie(key string) {
 }
 
 func (ctx *Context) GetUploadFile(inputName string) (*FormFile, error) {
-	ctx.r.ParseMultipartForm(MAX_MULTIPART_MEMORY)
-	var file io.ReadCloser
-	file, handler, err := ctx.r.FormFile(inputName)
-	if err != nil {
-		return nil, err
-	}
-	formFile := &FormFile{
-		stream:   file,
-		FileName: handler.Filename,
+	f := ctx.Form.File(inputName)
+
+	if f == nil {
+		return nil, http.ErrMissingFile
 	}
 
-	return formFile, nil
+	return f, nil
 }
 
 func (ctx *Context) ServeStaticFile(filePath string, isAttachment bool) {
