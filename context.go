@@ -30,7 +30,7 @@ type Context struct {
 	httpResponeCode int
 
 	Config         *cfg.Cfg
-	RouteVars      map[string]ext.VarType
+	RouteVars      map[string]ext.Var
 	FinishFilter   bool
 	RedirectPath   string
 	RedirectStatus int

@@ -118,8 +118,9 @@ type patternFunc struct {
 }
 
 var mListFilter []patternFunc
-var mListHandle []patternFunc
-var mHandle404 func(*Context)
+var mRootRouter rootRouter = rootRouter{}
+var mHandle404 func(http.ResponseWriter, *http.Request)
+var mView404 string
 var mDBFactory *db.SqlDBFactory
 var mCsrfProtection *csrf.CsrfProtection
 
@@ -284,6 +285,10 @@ func Run() {
 	}
 }
 
+/*Filter add a filter to request handler,
+- pattern used wildcard matching with ? and *
+- all request methods (GET/POST/PUT/HEAD/...) will be applied
+*/
 func Filter(pattern string, f func(*Context)) {
 	mListFilter = append(mListFilter, patternFunc{
 		Pattern:    pattern,
@@ -292,39 +297,44 @@ func Filter(pattern string, f func(*Context)) {
 }
 
 func HandleGetPost(pattern string, f func(*Context)) {
-	mListHandle = append(mListHandle, patternFunc{
-		Pattern:    pattern,
-		HandleFunc: f,
-		Methods:    []string{METHOD_GET, METHOD_POST},
-	})
+	var err error
+	err = mRootRouter.Add(METHOD_GET, pattern, f)
+	if err != nil {
+		log.Println(err)
+	}
+	err = mRootRouter.Add(METHOD_POST, pattern, f)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func HandleGet(pattern string, f func(*Context)) {
-	mListHandle = append(mListHandle, patternFunc{
-		Pattern:    pattern,
-		HandleFunc: f,
-		Methods:    []string{METHOD_GET},
-	})
+	err := mRootRouter.Add(METHOD_GET, pattern, f)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func HandlePost(pattern string, f func(*Context)) {
-	mListHandle = append(mListHandle, patternFunc{
-		Pattern:    pattern,
-		HandleFunc: f,
-		Methods:    []string{METHOD_POST},
-	})
+	err := mRootRouter.Add(METHOD_POST, pattern, f)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func HandleMethod(pattern string, f func(*Context), method string) {
-	mListHandle = append(mListHandle, patternFunc{
-		Pattern:    pattern,
-		HandleFunc: f,
-		Methods:    []string{method},
-	})
+	err := mRootRouter.Add(method, pattern, f)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
-func Handle404(f func(*Context)) {
+func Handle404(f func(http.ResponseWriter, *http.Request)) {
 	mHandle404 = f
+}
+
+func Set404View(viewPath string) {
+	mView404 = viewPath
 }
 
 type gfHandler struct{}
@@ -396,88 +406,70 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	for _, pf := range mListFilter {
-		if ext.WildMatch(pf.Pattern, urlPath) {
-			if context == nil {
-				context = createContext(w, r)
-				if !csrfProtectHTTP(context) {
-					return
-				}
-			}
+	handler, vars := mRootRouter.Route(r.Method, urlPath)
 
-			pf.HandleFunc(context)
-
-			if context.RedirectStatus != 0 {
-				context.Session.Save(r, w)
-				http.Redirect(w, r, context.RedirectPath, context.RedirectStatus)
-				return
-			}
-
-			if context.isSelfResponse {
-				return
-			}
-
-			if context.FinishFilter {
-				break
-			}
-		}
-	}
-
-	for _, pf := range mListHandle {
-		methodMatched := ext.ArrayContains(pf.Methods, r.Method)
-		if !methodMatched {
-			continue
-		}
-		if vars, matched := ext.VarMatch(pf.Pattern, urlPath); matched {
-			/*-----------------------------*/
-			if context == nil {
-				context = createContext(w, r)
-				if !csrfProtectHTTP(context) {
-					return
-				}
-			}
-			context.RouteVars = vars
-
-			pf.HandleFunc(context)
-			context.Session.Save(r, w)
-			/*-----------------------------*/
-
-			if context.RedirectStatus != 0 {
-				http.Redirect(w, r, context.RedirectPath, context.RedirectStatus)
-				return
-			}
-
-			if context.isSelfResponse {
-				return
-			}
-
-			renderView(context)
-
+	//Only do filter when exists handler
+	if handler != nil {
+		context = createContext(w, r)
+		if !csrfProtectHTTP(context) {
 			return
 		}
-	}
+		context.RouteVars = vars
 
-	if mHandle404 != nil {
-		if context == nil {
-			context = createContext(w, r)
-			if !csrfProtectHTTP(context) {
-				return
+		for _, pf := range mListFilter {
+			if ext.WildMatch(pf.Pattern, urlPath) {
+				pf.HandleFunc(context)
+
+				if context.RedirectStatus != 0 {
+					context.Session.Save(r, w)
+					http.Redirect(w, r, context.RedirectPath, context.RedirectStatus)
+					return
+				}
+
+				if context.isSelfResponse {
+					return
+				}
+
+				if context.FinishFilter {
+					break
+				}
 			}
 		}
 
-		mHandle404(context)
+		handler(context)
+		context.Session.Save(r, w)
 		if context.RedirectStatus != 0 {
 			http.Redirect(w, r, context.RedirectPath, context.RedirectStatus)
 			return
 		}
+
 		if context.isSelfResponse {
 			return
 		}
-		context.httpResponeCode = http.StatusNotFound
+
 		renderView(context)
-	} else {
-		http.Error(w, "404 - Not found", http.StatusNotFound)
+
+		return
 	}
+
+	if mHandle404 != nil {
+		mHandle404(w, r)
+		return
+	}
+	if len(mView404) > 0 {
+		view404File := filepath.Join(mViewDir, mView404)
+		if ext.FileExists(view404File) {
+			content404, err := ioutil.ReadFile(view404File)
+			if err == nil {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusNotFound)
+				w.Write(content404)
+				return
+
+			}
+		}
+	}
+	http.Error(w, "404 - Not found", http.StatusNotFound)
 }
 
 func toMinFile(filePath string) string {
@@ -514,11 +506,11 @@ func renderView(context *Context) {
 	if context.ViewBases != nil {
 		viewFiles = make([]string, len(context.ViewBases))
 		for i, tmpl := range context.ViewBases {
-			viewFiles[i] = mViewDir + "/" + tmpl
+			viewFiles[i] = filepath.Join(mViewDir, tmpl)
 		}
 	}
 	if context.View != "" {
-		viewFile := mViewDir + "/" + context.View
+		viewFile := filepath.Join(mViewDir, context.View)
 		viewFiles = append(viewFiles, viewFile)
 	}
 	if len(viewFiles) > 0 {

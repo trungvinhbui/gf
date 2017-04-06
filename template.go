@@ -2,7 +2,7 @@ package gf
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"github.com/goframework/gf/html/template"
 	"path/filepath"
 )
@@ -30,7 +30,7 @@ func ParseTemplateFiles(templateFunc map[string]interface{}, filename ...string)
 		return template.New(name).Funcs(funcMap).ParseFiles(filename...)
 	}
 
-	return nil, fmt.Errorf("html/template: no files named in call to ParseFiles")
+	return nil, errors.New("html/template: no files named in call to ParseFiles")
 }
 
 func tmplJson(v interface{}) template.JS {

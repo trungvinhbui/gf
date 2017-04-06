@@ -21,6 +21,10 @@ func (this *Cfg) Str(key string, defaultValue string) string {
 	return defaultValue
 }
 
+func (this *Cfg) StrOrEmpty(key string) string {
+	return this.Str(key, "")
+}
+
 func (this *Cfg) Int(key string, defaultValue int) int {
 	if v, ok := this.Data[key]; ok {
 		if num, err := strconv.Atoi(v); err == nil {
@@ -28,6 +32,10 @@ func (this *Cfg) Int(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+func (this *Cfg) IntOrZero(key string) int {
+	return this.Int(key, 0)
 }
 
 func (this *Cfg) Bool(key string, defaultValue bool) bool {
@@ -39,6 +47,10 @@ func (this *Cfg) Bool(key string, defaultValue bool) bool {
 	return defaultValue
 }
 
+func (this *Cfg) BoolOrFalse(key string) bool {
+	return this.Bool(key, false)
+}
+
 func (this *Cfg) Int64(key string, defaultValue int64) int64 {
 	if v, ok := this.Data[key]; ok {
 		if num, err := strconv.ParseInt(v, 10, 64); err == nil {
@@ -46,6 +58,10 @@ func (this *Cfg) Int64(key string, defaultValue int64) int64 {
 		}
 	}
 	return defaultValue
+}
+
+func (this *Cfg) Int64OrZero(key string) int64 {
+	return this.Int64(key, 0)
 }
 
 func (this *Cfg) List(key string) []string {
@@ -57,10 +73,15 @@ func (this *Cfg) List(key string) []string {
 
 func (this *Cfg) Load(file string) {
 
+	//Reset data
+	this.Data = map[string]string{}
+	this.ArrData = map[string][]string{}
+
 	// Open an input file, exit on error.
 	inputFile, err := os.Open(file)
 	if err != nil {
-		log.Fatal("Error opening config file:", err)
+		log.Println("Error opening config file:", err)
+		return
 	}
 
 	// Closes the file when we leave the scope of the current function,
@@ -69,9 +90,6 @@ func (this *Cfg) Load(file string) {
 	defer inputFile.Close()
 
 	scanner := bufio.NewScanner(inputFile)
-
-	this.Data = map[string]string{}
-	this.ArrData = map[string][]string{}
 
 	// scanner.Scan() advances to the next token returning false if an error was encountered
 	for scanner.Scan() {
@@ -95,7 +113,7 @@ func (this *Cfg) Load(file string) {
 		}
 	}
 
-	// When finished scanning if any error other than io.EOF occured
+	// When finished scanning if any error other than io.EOF occurred
 	// it will be returned by scanner.Err().
 	if err := scanner.Err(); err != nil {
 		log.Fatal(scanner.Err())
