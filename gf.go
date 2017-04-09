@@ -47,6 +47,7 @@ const (
 	CFG_KEY_SERVER_ENABLE_GZIP         = "Server.EnableGzip"
 	CFG_KEY_SERVER_FORCE_HTTPS         = "Server.ForceHttps"
 	CFG_KEY_SERVER_ENABLE_CSRF_PROTECT = "Server.EnableCsrfProtect"
+	CFG_KEY_SERVER_IP_REQUEST_LIMIT    = "Server.IPRequestLimit" //Limit request per IP per second (except static file requests), over limit will be reject with "429 Too Many Requests"
 	CFG_KEY_DATABASE_DRIVER            = "Database.Driver"
 	CFG_KEY_DATABASE_HOST              = "Database.Host"
 	CFG_KEY_DATABASE_PORT              = "Database.Port"
@@ -68,13 +69,14 @@ const (
 	DEFAULT_SERVER_ADDR_HTTPS          = ":44326"
 	DEFAULT_SERVER_CERT_FILE           = "./cert.pem"
 	DEFAULT_SERVER_KEY_FILE            = "./key.pem"
-	DEFAULT_SERVER_READ_TIMEOUT        = 120
-	DEFAULT_SERVER_WRITE_TIMEOUT       = 120
-	DEFAULT_SERVER_MAX_HEADER_BYTES    = 65536
+	DEFAULT_SERVER_READ_TIMEOUT        = 120              //120s
+	DEFAULT_SERVER_WRITE_TIMEOUT       = 120              //120s
+	DEFAULT_SERVER_MAX_HEADER_BYTES    = 16 * 1024        //16KB
 	DEFAULT_SERVER_MAX_CONTENT_LENGTH  = 10 * 1024 * 1024 //10MB
 	DEFAULT_SERVER_ENABLE_GZIP         = true
 	DEFAULT_SERVER_FORCE_HTTPS         = false
 	DEFAULT_SERVER_ENABLE_CSRF_PROTECT = true
+	DEFAULT_SERVER_IP_REQUEST_LIMIT    = 100 //100 request per second per IP
 	DEFAULT_COOKIE_SECRET              = "COOKIE_SECRET"
 	DEFAULT_SESSION_STORE_DIR          = "./session_store"
 	DEFAULT_CACHE_STORE_DIR            = "./cache_store"
@@ -85,8 +87,8 @@ const (
 
 const (
 	SERVER_SESSION_ID         = "session_id"
-	SERVER_SESSION_MAX_LENGTH = 131072 //128KB
-	SERVER_SESSION_KEEP_DAY   = 7      // 1 week
+	SERVER_SESSION_MAX_LENGTH = 128 * 1024 //128KB
+	SERVER_SESSION_KEEP_DAY   = 7          // 1 week
 
 	METHOD_GET  = "GET"
 	METHOD_POST = "POST"
@@ -140,6 +142,7 @@ func Run() {
 	cfWriteTimeout := mCfg.Int(CFG_KEY_SERVER_WRITE_TIMEOUT, DEFAULT_SERVER_WRITE_TIMEOUT)
 	cfMaxHeaderBytes := mCfg.Int(CFG_KEY_SERVER_MAX_HEADER_BYTES, DEFAULT_SERVER_MAX_HEADER_BYTES)
 	mMaxContentLength = mCfg.Int64(CFG_KEY_SERVER_MAX_CONTENT_LENGTH, DEFAULT_SERVER_MAX_CONTENT_LENGTH)
+	mIPRequestLimit = mCfg.Int(CFG_KEY_SERVER_IP_REQUEST_LIMIT, DEFAULT_SERVER_IP_REQUEST_LIMIT)
 	cfCookieSecret := mCfg.Str(CFG_KEY_COOKIE_SECRET, DEFAULT_COOKIE_SECRET)
 	cfSessionStoreDir := mCfg.Str(CFG_KEY_SESSION_STORE_DIR, DEFAULT_SESSION_STORE_DIR)
 	cfCacheStoreDir := mCfg.Str(CFG_KEY_CACHE_STORE_DIR, DEFAULT_CACHE_STORE_DIR)
@@ -348,7 +351,7 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	if r.ContentLength > mMaxContentLength {
-		http.Error(w, "413 - Request entity too large", http.StatusRequestEntityTooLarge)
+		http.Error(w, "413 - Request Entity Too Large", http.StatusRequestEntityTooLarge)
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, mMaxContentLength)
@@ -396,6 +399,11 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		//Not GET method or file not exist
 		http.Error(w, "404 - Not found", http.StatusNotFound)
+		return
+	}
+
+	if overIPLimit(w, r) {
+		http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
 		return
 	}
 
