@@ -553,8 +553,6 @@ func renderView(context *Context) {
 func startDeleteSessionStoreJob() {
 	go func() {
 		for true {
-			log.Println("Start delete session store !")
-
 			files, err := ioutil.ReadDir(mSessionStoreDir)
 			dayAgo := time.Now().AddDate(0, 0, -SERVER_SESSION_KEEP_DAY)
 			count := 0
@@ -572,7 +570,6 @@ func startDeleteSessionStoreJob() {
 				log.Printf("Deleted %v session files\r\n", count)
 			}
 
-			log.Println("End delete session store !")
 			time.Sleep(24 * time.Hour)
 		}
 	}()
@@ -581,13 +578,13 @@ func startDeleteSessionStoreJob() {
 func cleanUpCacheDir(dir string) (countFile int, empty bool) {
 	files, err := ioutil.ReadDir(dir)
 	now := time.Now()
-	count := 0
+	countFile = 0
 	if err == nil {
 		for _, f := range files {
 			subPath := filepath.Join(dir, f.Name())
 			if f.IsDir() {
 				countSubFiles, empty := cleanUpCacheDir(subPath)
-				count += countSubFiles
+				countFile += countSubFiles
 				if empty && f.ModTime().Before(time.Now().AddDate(0, 0, -1)) {
 					os.Remove(subPath)
 				}
@@ -600,16 +597,16 @@ func cleanUpCacheDir(dir string) (countFile int, empty bool) {
 					timeExp := time.Unix(expTimeUnix, 0)
 					if timeExp.Before(now) {
 						if os.Remove(subPath) == nil {
-							count++
+							countFile++
 						}
 						if os.Remove(strings.Replace(subPath, "_expire_time", "", 1)) == nil {
-							count++
+							countFile++
 						}
 					}
 				}
 			} else if f.ModTime().Before(time.Now().AddDate(0, 0, -1)) {
 				if os.Remove(subPath) == nil {
-					count++
+					countFile++
 				}
 			}
 		}
@@ -618,22 +615,19 @@ func cleanUpCacheDir(dir string) (countFile int, empty bool) {
 	remainFiles, _ := ioutil.ReadDir(dir)
 	empty = (len(remainFiles) == 0)
 
-	return count, empty
+	return countFile, empty
 }
 
 func startDeleteCacheStoreJob() {
 
 	go func() {
 		for true {
-			log.Println("Start delete cache store !")
-
 			count, _ := cleanUpCacheDir(mCacheStoreDir)
 
 			if count > 0 {
 				log.Printf("Deleted %v cache files\r\n", count)
 			}
 
-			log.Println("End delete cache store !")
 			time.Sleep(time.Hour)
 		}
 	}()
@@ -690,7 +684,7 @@ func getHost(r *http.Request) string {
 	return host
 }
 
-// Protect http request, return true if no problem happend
+// Protect http request, return true if no problem happened
 
 // Protect is HTTP middleware that provides Cross-Site Request Forgery
 // protection.
