@@ -514,12 +514,11 @@ func renderView(context *Context) {
 	if context.ViewBases != nil {
 		viewFiles = make([]string, len(context.ViewBases))
 		for i, tmpl := range context.ViewBases {
-			viewFiles[i] = filepath.Join(mViewDir, tmpl)
+			viewFiles[i] = tmpl
 		}
 	}
 	if context.View != "" {
-		viewFile := filepath.Join(mViewDir, context.View)
-		viewFiles = append(viewFiles, viewFile)
+		viewFiles = append(viewFiles, context.View)
 	}
 	if len(viewFiles) > 0 {
 		tem, err := ParseTemplateFiles(context.TemplateFunc, viewFiles...)
