@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/goframework/gf/buffer"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/csrf"
 	"github.com/goframework/gf/db"
@@ -28,6 +29,7 @@ import (
 const (
 	CFG_KEY_SERVER_STATIC_DIR          = "Server.StaticDir"
 	CFG_KEY_SERVER_STATIC_USE_MIN      = "Server.StaticUseMin"
+	CFG_KEY_SERVER_STATIC_MAX_CACHE_FZ = "Server.StaticMaxCacheFileSize"
 	CFG_KEY_SERVER_VIEW_DIR            = "Server.ViewDir"
 	CFG_KEY_SERVER_STATIC_WEB_PATH     = "Server.StaticWebPath"
 	CFG_KEY_SERVER_ADDR                = "Server.Addr"
@@ -63,6 +65,7 @@ const (
 	DEFAULT_SERVER_CONFIG_FILE         = "./server.cfg"
 	DEFAULT_SERVER_STATIC_DIR          = "./static"
 	DEFAULT_SERVER_STATIC_USE_MIN      = false
+	DEFAULT_SERVER_STATIC_MAX_CACHE_FZ = 512 * 1024 //512KB
 	DEFAULT_SERVER_STATIC_WEB_PATH     = "/static"
 	DEFAULT_SERVER_VIEW_DIR            = "./view"
 	DEFAULT_SERVER_ADDR                = ":8026"
@@ -143,6 +146,7 @@ func Run() {
 	cfMaxHeaderBytes := mCfg.Int(CFG_KEY_SERVER_MAX_HEADER_BYTES, DEFAULT_SERVER_MAX_HEADER_BYTES)
 	mMaxContentLength = mCfg.Int64(CFG_KEY_SERVER_MAX_CONTENT_LENGTH, DEFAULT_SERVER_MAX_CONTENT_LENGTH)
 	mIPRequestLimit = mCfg.Int(CFG_KEY_SERVER_IP_REQUEST_LIMIT, DEFAULT_SERVER_IP_REQUEST_LIMIT)
+	mFileCacheMaxSize = mCfg.Int64(CFG_KEY_SERVER_STATIC_MAX_CACHE_FZ, DEFAULT_SERVER_STATIC_MAX_CACHE_FZ)
 	cfCookieSecret := mCfg.Str(CFG_KEY_COOKIE_SECRET, DEFAULT_COOKIE_SECRET)
 	cfSessionStoreDir := mCfg.Str(CFG_KEY_SESSION_STORE_DIR, DEFAULT_SESSION_STORE_DIR)
 	cfCacheStoreDir := mCfg.Str(CFG_KEY_CACHE_STORE_DIR, DEFAULT_CACHE_STORE_DIR)
@@ -388,6 +392,24 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					staticFile = toMinFile(staticFile)
 				}
 				w.Header().Add("Cache-Control", "max-age=0, must-revalidate")
+
+				fc, err := getFileCache(staticFile)
+
+				if err != nil {
+					log.Printf("Static cache error: %v", err)
+					http.Error(w, "422 - Unprocessable Entity", http.StatusUnprocessableEntity)
+					return
+				}
+
+				if fc != nil {
+					if mEnableGzip {
+						fsgzip.ServeContent(w, r, fc.Name, fc.ModTime, buffer.NewReadSeekBuffer(fc.Data))
+					} else {
+						http.ServeContent(w, r, fc.Name, fc.ModTime, buffer.NewReadSeekBuffer(fc.Data))
+					}
+					return
+				}
+
 				if mEnableGzip {
 					fsgzip.ServeFile(w, r, staticFile)
 				} else {
