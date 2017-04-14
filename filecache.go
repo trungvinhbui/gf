@@ -2,7 +2,6 @@ package gf
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -49,7 +48,6 @@ func getFileCache(file string) (*fileCache, error) {
 		}
 
 		mFileCacheLock.Lock()
-		log.Println("Cache set " + file)
 		mFileCacheMap[file] = &newFc
 		mFileCacheLock.Unlock()
 
