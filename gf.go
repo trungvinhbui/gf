@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/goframework/gf/buffer"
 	"github.com/goframework/gf/cfg"
 	"github.com/goframework/gf/csrf"
 	"github.com/goframework/gf/db"
@@ -99,7 +98,17 @@ const (
 	_IS_CSRF_PROTECTED = "_IS_CSRF_PROTECTED"
 )
 
-var _MINI_FILE_EXT = []string{"js", "css"}
+var _MIN_FILE_EXT = map[string]bool{".js": true, ".css": true}
+var _GZIP_ENABLE_EXT = map[string]bool{
+	".css":  true,
+	".htm":  true,
+	".html": true,
+	".js":   true,
+	".json": true,
+	".svg":  true,
+	".txt":  true,
+	".xml":  true,
+}
 
 var mStaticDir string
 var mViewDir string
@@ -402,15 +411,11 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if fc != nil {
-					if mEnableGzip {
-						fsgzip.ServeContent(w, r, fc.Name, fc.ModTime, buffer.NewReadSeekBuffer(fc.Data))
-					} else {
-						http.ServeContent(w, r, fc.Name, fc.ModTime, buffer.NewReadSeekBuffer(fc.Data))
-					}
+					serveCacheFile(w, r, fc)
 					return
 				}
 
-				if mEnableGzip {
+				if mEnableGzip && isGzipEnable(staticFile) {
 					fsgzip.ServeFile(w, r, staticFile)
 				} else {
 					http.ServeFile(w, r, staticFile)
@@ -503,18 +508,18 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func toMinFile(filePath string) string {
-	for _, ex := range _MINI_FILE_EXT {
-		if strings.HasSuffix(filePath, "."+ex) {
-			if !(strings.HasSuffix(filePath, ".min."+ex)) {
-				minFilePath := filePath[:len(filePath)-len(ex)] + "min." + ex
-				if ext.FileExists(minFilePath) {
-					return minFilePath
-				}
-			}
-			break
+	ex := filepath.Ext(filePath)
+	if _MIN_FILE_EXT[ex] && !strings.HasSuffix(filePath, ".min"+ex) {
+		minFilePath := filePath[:len(filePath)-len(ex)] + ".min" + ex
+		if ext.FileExists(minFilePath) {
+			return minFilePath
 		}
 	}
 	return filePath
+}
+
+func isGzipEnable(file string) bool {
+	return _GZIP_ENABLE_EXT[strings.ToLower(filepath.Ext(file))]
 }
 
 func renderView(context *Context) {

@@ -133,7 +133,7 @@ func dirList(w http.ResponseWriter, f File) {
 // handle requests using If-Range and If-None-Match.
 //
 // Note that *os.File implements the io.ReadSeeker interface.
-func ServeContent(w http.ResponseWriter, req *http.Request, name string, modtime time.Time, content io.ReadSeeker) {
+func ServeContent(w http.ResponseWriter, req *http.Request, name string, modtime time.Time, content io.ReadSeeker, gzData []byte) {
 	sizeFunc := func() (int64, error) {
 		size, err := content.Seek(0, os.SEEK_END)
 		if err != nil {
@@ -145,7 +145,7 @@ func ServeContent(w http.ResponseWriter, req *http.Request, name string, modtime
 		}
 		return size, nil
 	}
-	serveContent(w, req, name, modtime, sizeFunc, content)
+	serveContent(w, req, name, modtime, sizeFunc, content, gzData)
 }
 
 // errSeeker is returned by ServeContent's sizeFunc when the content
@@ -158,7 +158,7 @@ var errSeeker = errors.New("seeker can't seek")
 // if modtime.IsZero(), modtime is unknown.
 // content must be seeked to the beginning of the file.
 // The sizeFunc is called at most once. Its error, if any, is sent in the HTTP response.
-func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker) {
+func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker, gzData []byte) {
 	if checkLastModified(w, r, modtime) {
 		return
 	}
@@ -282,9 +282,13 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 		} else {
 			w.Header().Set("Content-Encoding", "gzip")
 			w.WriteHeader(code)
-			gzWriter := gzip.NewWriter(w)
-			io.Copy(gzWriter, sendContent)
-			gzWriter.Flush()
+			if gzData != nil {
+				w.Write(gzData)
+			} else {
+				gzWriter := gzip.NewWriter(w)
+				io.Copy(gzWriter, sendContent)
+				gzWriter.Flush()
+			}
 		}
 	}
 }
@@ -445,7 +449,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name strin
 
 	// serveContent will check modification time
 	sizeFunc := func() (int64, error) { return d.Size(), nil }
-	serveContent(w, r, d.Name(), d.ModTime(), sizeFunc, f)
+	serveContent(w, r, d.Name(), d.ModTime(), sizeFunc, f, nil)
 }
 
 // toHTTPError returns a non-specific HTTP error message and status code
