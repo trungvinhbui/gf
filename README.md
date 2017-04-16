@@ -21,7 +21,6 @@ Server.CookieSecret		= Your cookie secret (any string)
 Server.SessionStoreDir	= ./session_store
 
 Server.EnableGzip		= 1
-Server.EnableHttp2		= 1
 Server.ForceHttps		= 0
 
 Server.EnableHttps		= 0

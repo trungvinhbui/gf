@@ -9,11 +9,12 @@ import (
 	"github.com/goframework/gf/csrf"
 	"github.com/goframework/gf/db"
 	"github.com/goframework/gf/ext"
-	"github.com/goframework/gf/exterror"
 	"github.com/goframework/gf/fsgzip"
 	"github.com/goframework/gf/html/template"
 	"github.com/goframework/gf/sessions"
-	"golang.org/x/net/http2"
+	"github.com/tdewolff/minify"
+	"github.com/tdewolff/minify/html"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -27,7 +28,6 @@ import (
 
 const (
 	CFG_KEY_SERVER_STATIC_DIR          = "Server.StaticDir"
-	CFG_KEY_SERVER_STATIC_USE_MIN      = "Server.StaticUseMin"
 	CFG_KEY_SERVER_STATIC_MAX_CACHE_FZ = "Server.StaticMaxCacheFileSize"
 	CFG_KEY_SERVER_VIEW_DIR            = "Server.ViewDir"
 	CFG_KEY_SERVER_STATIC_WEB_PATH     = "Server.StaticWebPath"
@@ -41,11 +41,11 @@ const (
 	CFG_KEY_CACHE_STORE_DIR            = "Server.CacheStoreDir"
 	CFG_KEY_SERVER_ENABLE_HTTP         = "Server.EnableHttp"
 	CFG_KEY_SERVER_ENABLE_HTTPS        = "Server.EnableHttps"
-	CFG_KEY_SERVER_ENABLE_HTTP2        = "Server.EnableHttp2"
 	CFG_KEY_SERVER_ADDR_HTTPS          = "Server.AddrHttps"
 	CFG_KEY_SERVER_CERT_FILE           = "Server.CertFile"
 	CFG_KEY_SERVER_KEY_FILE            = "Server.KeyFile"
 	CFG_KEY_SERVER_ENABLE_GZIP         = "Server.EnableGzip"
+	CFG_KEY_SERVER_ENABLE_MINIFY       = "Server.EnableMinify"
 	CFG_KEY_SERVER_FORCE_HTTPS         = "Server.ForceHttps"
 	CFG_KEY_SERVER_ENABLE_CSRF_PROTECT = "Server.EnableCsrfProtect"
 	CFG_KEY_SERVER_IP_REQUEST_LIMIT    = "Server.IPRequestLimit" //Limit request per IP per second (except static file requests), over limit will be reject with "429 Too Many Requests"
@@ -63,7 +63,6 @@ const (
 	DEFAULT_HTTPS_PORT                 = ":443"
 	DEFAULT_SERVER_CONFIG_FILE         = "./server.cfg"
 	DEFAULT_SERVER_STATIC_DIR          = "./static"
-	DEFAULT_SERVER_STATIC_USE_MIN      = false
 	DEFAULT_SERVER_STATIC_MAX_CACHE_FZ = 512 * 1024 //512KB
 	DEFAULT_SERVER_STATIC_WEB_PATH     = "/static"
 	DEFAULT_SERVER_VIEW_DIR            = "./view"
@@ -76,6 +75,7 @@ const (
 	DEFAULT_SERVER_MAX_HEADER_BYTES    = 16 * 1024        //16KB
 	DEFAULT_SERVER_MAX_CONTENT_LENGTH  = 10 * 1024 * 1024 //10MB
 	DEFAULT_SERVER_ENABLE_GZIP         = true
+	DEFAULT_SERVER_ENABLE_MINIFY       = false
 	DEFAULT_SERVER_FORCE_HTTPS         = false
 	DEFAULT_SERVER_ENABLE_CSRF_PROTECT = true
 	DEFAULT_SERVER_IP_REQUEST_LIMIT    = 100 //100 request per second per IP
@@ -98,7 +98,6 @@ const (
 	_IS_CSRF_PROTECTED = "_IS_CSRF_PROTECTED"
 )
 
-var _MIN_FILE_EXT = map[string]bool{".js": true, ".css": true}
 var _GZIP_ENABLE_EXT = map[string]bool{
 	".css":  true,
 	".htm":  true,
@@ -116,8 +115,8 @@ var mStaticWebPath string
 var mSessionStoreDir string
 var mCacheStoreDir string
 var mEnableGzip = true
+var mEnableMinify = false
 var mForceHttps = false
-var mStaticUseMin = false
 var mMaxContentLength int64
 
 var mServerHttpAddr string
@@ -139,6 +138,7 @@ var mDBFactory *db.SqlDBFactory
 var mCsrfProtection *csrf.CsrfProtection
 
 var mSessionStore *sessions.FilesystemStore
+var mHtmlMinifier *minify.M
 
 // Start web server
 func Run() {
@@ -161,7 +161,6 @@ func Run() {
 	cfCacheStoreDir := mCfg.Str(CFG_KEY_CACHE_STORE_DIR, DEFAULT_CACHE_STORE_DIR)
 	cfEnableHttp := mCfg.Bool(CFG_KEY_SERVER_ENABLE_HTTP, DEFAULT_SERVER_ENABLE_HTTP)
 	cfEnableHttps := mCfg.Bool(CFG_KEY_SERVER_ENABLE_HTTPS, DEFAULT_SERVER_ENABLE_HTTPS)
-	cfEnableHttp2 := mCfg.Bool(CFG_KEY_SERVER_ENABLE_HTTP2, DEFAULT_SERVER_ENABLE_HTTP2)
 	cfAddrHttps := mCfg.Str(CFG_KEY_SERVER_ADDR_HTTPS, DEFAULT_SERVER_ADDR_HTTPS)
 	cfCertFile := mCfg.Str(CFG_KEY_SERVER_CERT_FILE, DEFAULT_SERVER_CERT_FILE)
 	cfKeyFile := mCfg.Str(CFG_KEY_SERVER_KEY_FILE, DEFAULT_SERVER_KEY_FILE)
@@ -169,7 +168,7 @@ func Run() {
 	mServerHttpAddr = cfAddr
 	mServerHttpsAddr = cfAddrHttps
 
-	mStaticUseMin = mCfg.Bool(CFG_KEY_SERVER_STATIC_USE_MIN, DEFAULT_SERVER_STATIC_USE_MIN)
+	mEnableMinify = mCfg.Bool(CFG_KEY_SERVER_ENABLE_MINIFY, DEFAULT_SERVER_ENABLE_MINIFY)
 	mEnableGzip = mCfg.Bool(CFG_KEY_SERVER_ENABLE_GZIP, DEFAULT_SERVER_ENABLE_GZIP)
 	mForceHttps = mCfg.Bool(CFG_KEY_SERVER_FORCE_HTTPS, DEFAULT_SERVER_FORCE_HTTPS)
 	cfEnableCsrfProtect := mCfg.Bool(CFG_KEY_SERVER_ENABLE_CSRF_PROTECT, DEFAULT_SERVER_ENABLE_CSRF_PROTECT)
@@ -189,6 +188,11 @@ func Run() {
 	}
 	if !strings.HasSuffix(mStaticWebPath, "/") {
 		mStaticWebPath = mStaticWebPath + "/"
+	}
+
+	if mEnableMinify {
+		mHtmlMinifier = minify.New()
+		mHtmlMinifier.AddFunc("html", html.Minify)
 	}
 
 	if cfDatabaseServer == "" {
@@ -277,12 +281,7 @@ func Run() {
 		go func() {
 			log.Println("Https server start at " + cfAddrHttps)
 
-			if cfEnableHttp2 {
-				http2.VerboseLogs = false
-				http2.ConfigureServer(serverHttps, nil)
-			} else {
-				serverHttps.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){}
-			}
+			serverHttps.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){}
 
 			err := serverHttps.ListenAndServeTLS(cfCertFile, cfKeyFile)
 			errChanHttps <- err
@@ -397,9 +396,6 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			urlPath = urlPath[len(mStaticWebPath):]
 			staticFile, err := filepath.Abs(mStaticDir + urlPath)
 			if err == nil && strings.HasPrefix(staticFile, mStaticDir) && ext.FileExists(staticFile) {
-				if mStaticUseMin {
-					staticFile = toMinFile(staticFile)
-				}
 				w.Header().Add("Cache-Control", "max-age=0, must-revalidate")
 
 				fc, err := getFileCache(staticFile)
@@ -493,47 +489,52 @@ func (*gfHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(mView404) > 0 {
 		view404File := filepath.Join(mViewDir, mView404)
-		if ext.FileExists(view404File) {
-			content404, err := ioutil.ReadFile(view404File)
-			if err == nil {
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.WriteHeader(http.StatusNotFound)
-				w.Write(content404)
-				return
-
-			}
+		fc, _ := getFileCache(view404File)
+		if fc != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusNotFound)
+			w.Write(fc.Data)
+			return
 		}
 	}
 	http.Error(w, "404 - Not found", http.StatusNotFound)
-}
-
-func toMinFile(filePath string) string {
-	ex := filepath.Ext(filePath)
-	if _MIN_FILE_EXT[ex] && !strings.HasSuffix(filePath, ".min"+ex) {
-		minFilePath := filePath[:len(filePath)-len(ex)] + ".min" + ex
-		if ext.FileExists(minFilePath) {
-			return minFilePath
-		}
-	}
-	return filePath
 }
 
 func isGzipEnable(file string) bool {
 	return _GZIP_ENABLE_EXT[strings.ToLower(filepath.Ext(file))]
 }
 
-func renderView(context *Context) {
+type NullCloseWriter struct {
+	w io.Writer
+}
 
+func (ncw *NullCloseWriter) Write(p []byte) (n int, err error) {
+	return ncw.w.Write(p)
+}
+
+func (w *NullCloseWriter) Close() error {
+	return nil
+}
+
+func renderView(context *Context) {
 	if context.JsonResponse != nil {
-		context.w.Header().Add("Content-Type", "application/json; charset=utf-8")
-		context.w.WriteHeader(context.httpResponeCode)
-		jsonBytes, err := json.Marshal(context.JsonResponse)
-		if err != nil {
-			log.Println(exterror.WrapExtError(err))
-			context.w.Write([]byte("{}"))
+		var wc io.WriteCloser
+		wc = &NullCloseWriter{context.w}
+		if mEnableGzip {
+			context.w.Header().Set("Content-Encoding", "gzip")
+			wc = gzip.NewWriter(context.w)
 		}
 
-		context.w.Write(jsonBytes)
+		context.w.Header().Add("Content-Type", "application/json; charset=utf-8")
+		context.w.WriteHeader(context.httpResponeCode)
+
+		jsonEncoder := json.NewEncoder(wc)
+		err := jsonEncoder.Encode(context.JsonResponse)
+		if err != nil {
+			log.Println("Error while encoding JSON:\n" + err.Error())
+		}
+
+		wc.Close()
 		return
 	}
 
@@ -554,28 +555,39 @@ func renderView(context *Context) {
 			http.Error(context.w, "ParseFiles: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		var wc io.WriteCloser
+		wc = &NullCloseWriter{context.w}
 
 		if mEnableGzip {
 			context.w.Header().Set("Content-Encoding", "gzip")
-
-			if context.w.Header().Get("Content-Type") == "" {
-				context.w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			}
-			context.w.WriteHeader(context.httpResponeCode)
-
-			gzWriter := gzip.NewWriter(context.w)
-			err = tem.Execute(gzWriter, context.ViewData)
-			gzWriter.Flush()
-		} else {
-			context.w.WriteHeader(context.httpResponeCode)
-			err = tem.Execute(context.w, context.ViewData)
+			wc = gzip.NewWriter(context.w)
 		}
+		contentType := context.w.Header().Get("Content-Type")
+		if contentType == "" {
+			contentType = "text/html; charset=utf-8"
+			context.w.Header().Set("Content-Type", contentType)
+		}
+
+		var wc2 io.WriteCloser
+		wc2 = wc
+		if mEnableMinify && strings.Contains(contentType, "text/html") {
+			wc2 = mHtmlMinifier.Writer("html", wc)
+		}
+
+		context.w.WriteHeader(context.httpResponeCode)
+		err = tem.Execute(wc2, context.ViewData)
 
 		if err != nil {
 			log.Println("Error while executing template:\n" + err.Error())
 		}
+
+		wc2.Close()
+		if wc != wc2 {
+			wc.Close()
+		}
 	}
 }
+
 func startDeleteSessionStoreJob() {
 	go func() {
 		for true {

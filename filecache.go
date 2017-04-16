@@ -5,13 +5,32 @@ import (
 	"compress/gzip"
 	"github.com/goframework/gf/buffer"
 	"github.com/goframework/gf/fsgzip"
+	"github.com/tdewolff/minify"
+	"github.com/tdewolff/minify/css"
+	"github.com/tdewolff/minify/html"
+	"github.com/tdewolff/minify/js"
+	"github.com/tdewolff/minify/json"
+	"github.com/tdewolff/minify/svg"
+	"github.com/tdewolff/minify/xml"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
+
+var _MINIFY_ENABLE_EXT = map[string]minify.MinifierFunc{
+	".css":  css.Minify,
+	".htm":  html.Minify,
+	".html": html.Minify,
+	".js":   js.Minify,
+	".json": json.Minify,
+	".svg":  svg.Minify,
+	".xml":  xml.Minify,
+}
 
 type fileCache struct {
 	Name     string
@@ -46,6 +65,21 @@ func getFileCache(file string) (*fileCache, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		if mEnableMinify {
+			fileExt := filepath.Ext(file)
+			if minifyFunc, exist := _MINIFY_ENABLE_EXT[fileExt]; exist && !strings.HasSuffix(file, ".min"+fileExt) {
+				m := minify.New()
+				m.AddFunc(fileExt, minifyFunc)
+				miniData, err := m.Bytes(fileExt, data)
+				if err == nil {
+					data = miniData
+				} else {
+					log.Printf("Minify error at [%v]: %v", file, err)
+				}
+			}
+		}
+
 		var gzipData []byte = nil
 		if mEnableGzip && isGzipEnable(file) {
 			gzBuf := bytes.Buffer{}
