@@ -280,9 +280,6 @@ func Run() {
 	if cfEnableHttps {
 		go func() {
 			log.Println("Https server start at " + cfAddrHttps)
-
-			serverHttps.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){}
-
 			err := serverHttps.ListenAndServeTLS(cfCertFile, cfKeyFile)
 			errChanHttps <- err
 			log.Println("Https server stopted")
