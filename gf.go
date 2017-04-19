@@ -2,7 +2,6 @@ package gf
 
 import (
 	"compress/gzip"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/goframework/gf/cfg"
@@ -192,7 +191,7 @@ func Run() {
 
 	if mEnableMinify {
 		mHtmlMinifier = minify.New()
-		mHtmlMinifier.AddFunc("html", html.Minify)
+		mHtmlMinifier.AddFunc("html", (&html.Minifier{KeepDefaultAttrVals: true}).Minify)
 	}
 
 	if cfDatabaseServer == "" {
